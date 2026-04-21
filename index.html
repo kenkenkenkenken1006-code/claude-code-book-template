@@ -1,0 +1,2126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>麺やけん テトリス</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  width:100%; height:100%;
+  background:
+    radial-gradient(circle at 20% 10%, #ffe3f0 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, #ffd9b8 0%, transparent 50%),
+    linear-gradient(160deg, #fff3e6 0%, #ffd9e8 50%, #ffe4cc 100%);
+  color: #5c3317;
+  font-family: "M PLUS Rounded 1c","Hiragino Maru Gothic Pro","Meiryo",sans-serif;
+  font-weight: 700;
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Moving pattern behind everything */
+body::before {
+  content: ""; position: fixed; inset: 0;
+  background-image:
+    radial-gradient(circle at 15% 25%, rgba(255,107,157,0.18) 2px, transparent 3px),
+    radial-gradient(circle at 75% 60%, rgba(255,179,102,0.18) 2px, transparent 3px),
+    radial-gradient(circle at 40% 85%, rgba(139,69,19,0.13) 2px, transparent 3px),
+    radial-gradient(circle at 90% 15%, rgba(255,107,157,0.15) 2px, transparent 3px);
+  background-size: 120px 120px, 140px 140px, 100px 100px, 160px 160px;
+  animation: patternDrift 30s linear infinite;
+  pointer-events: none; z-index: 0;
+}
+@keyframes patternDrift {
+  from { background-position: 0 0, 0 0, 0 0, 0 0; }
+  to   { background-position: 120px 120px, -140px 140px, 100px -100px, -160px 160px; }
+}
+
+.game-container {
+  position: relative; z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* ===== HEADER ===== */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px 2px;
+  width: 100%;
+  flex-shrink: 0;
+}
+.brand {
+  display: flex; align-items: center; gap: 6px;
+}
+.brand-logo {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 3px solid #ff6b9d;
+  box-shadow: 0 2px 0 #c44678, 0 4px 10px rgba(255,107,157,0.35);
+  background: #fff;
+}
+.brand-name {
+  font-size: 15px; font-weight: 900;
+  background: linear-gradient(135deg, #ff6b9d 0%, #c44678 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.04em;
+}
+.header-btns { display: flex; gap: 6px; }
+#bgm-btn, #pause-btn {
+  background: #fff;
+  color: #ff6b9d;
+  border: 3px solid #ff6b9d;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #c44678;
+  font-family: inherit;
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+#bgm-btn:active, #pause-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #c44678; }
+#bgm-btn.on { background: #ff6b9d; color: #fff; }
+#pause-btn.paused { background: #ff6b9d; color: #fff; }
+#pause-btn { min-width: 36px; padding: 4px 10px; font-size: 14px; }
+
+/* ===== SCORE ROW (big numbers) ===== */
+.score-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 4px 8px;
+  width: 100%;
+  max-width: 460px;
+  flex-shrink: 0;
+}
+.score-cell {
+  background: #fff;
+  border: 3px solid #8b4513;
+  border-radius: 14px;
+  padding: 2px 4px 4px;
+  text-align: center;
+  box-shadow: 0 3px 0 #5c3317;
+  position: relative;
+  overflow: hidden;
+}
+.score-cell .s-label {
+  font-size: 9px;
+  color: #8b4513;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+}
+.score-cell .s-val {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+  color: #5c3317;
+}
+.score-cell.pink { border-color: #ff6b9d; box-shadow: 0 3px 0 #c44678; }
+.score-cell.pink .s-label { color: #ff6b9d; }
+.score-cell.pink .s-val { color: #c44678; }
+
+/* Score pop animation */
+.score-cell.pop .s-val { animation: scorePop 0.35s ease-out; }
+@keyframes scorePop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.35); color: #ff3366; }
+  100% { transform: scale(1); }
+}
+
+/* ===== MAIN PLAY AREA ===== */
+.play-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 0;
+  width: 100%;
+  padding: 4px 8px;
+  position: relative;
+}
+#game-canvas {
+  background: #fff7ef;
+  border: 4px solid #8b4513;
+  border-radius: 12px;
+  box-shadow: 0 6px 0 #5c3317, 0 10px 30px rgba(139,69,19,0.25);
+  display: block;
+}
+
+/* Side panel with preview, hold, gauge, and dog */
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.mini-box {
+  background: #fff;
+  border: 3px solid #8b4513;
+  border-radius: 12px;
+  padding: 3px 4px 2px;
+  box-shadow: 0 3px 0 #5c3317;
+  text-align: center;
+}
+.mini-box .mini-label {
+  font-size: 9px;
+  color: #8b4513;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+.mini-box canvas {
+  display: block;
+  background: #fff7ef;
+  border-radius: 6px;
+}
+
+/* Gauge */
+.gauge-box {
+  background: #fff;
+  border: 3px solid #ff6b9d;
+  border-radius: 12px;
+  padding: 4px 6px;
+  box-shadow: 0 3px 0 #c44678;
+  width: 100%;
+  max-width: 86px;
+}
+.gauge-box .gauge-label {
+  font-size: 9px;
+  color: #ff6b9d;
+  font-weight: 900;
+  text-align: center;
+  line-height: 1.1;
+  margin-bottom: 3px;
+}
+.gauge-bar-outer {
+  width: 100%;
+  height: 10px;
+  background: #ffe0ed;
+  border: 2px solid #c44678;
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.gauge-bar-inner {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #ff9ec4 0%, #ff6b9d 50%, #ff3b6e 100%);
+  border-radius: 999px;
+  transition: width 0.3s;
+  position: relative;
+}
+.gauge-bar-inner::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+  animation: gaugeShine 1.5s linear infinite;
+}
+@keyframes gaugeShine {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+.gauge-paws {
+  font-size: 10px; line-height: 1; text-align: center; margin-top: 2px;
+  letter-spacing: 1px;
+}
+.gauge-box.ready {
+  animation: gaugeReadyPulse 0.7s ease-in-out infinite alternate;
+}
+@keyframes gaugeReadyPulse {
+  from { box-shadow: 0 3px 0 #c44678, 0 0 8px #ff6b9d; }
+  to   { box-shadow: 0 3px 0 #c44678, 0 0 22px #ff3b6e; }
+}
+
+/* Dog side container (Carbuncle-style) */
+.dog-side {
+  margin-top: 4px;
+  position: relative;
+  width: 86px; height: 78px;
+  display: flex; align-items: flex-end; justify-content: center;
+  pointer-events: none;
+}
+.dog-side img {
+  width: 64px; height: 64px; border-radius: 50%;
+  border: 4px solid #fff;
+  box-shadow: 0 4px 0 #8b4513, 0 0 0 3px #ff6b9d;
+  background: #fff;
+  animation: dogIdle 2.4s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+@keyframes dogIdle {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%      { transform: translateY(-4px) rotate(2deg); }
+}
+.dog-side.hop img {
+  animation: dogHop 0.45s ease-out;
+}
+@keyframes dogHop {
+  0%   { transform: translateY(0) scale(1,1); }
+  30%  { transform: translateY(-18px) scale(0.9,1.15); }
+  60%  { transform: translateY(-22px) scale(1.1,0.9); }
+  100% { transform: translateY(0) scale(1,1); }
+}
+.dog-side.spin img {
+  animation: dogSpin 0.7s linear;
+}
+@keyframes dogSpin {
+  from { transform: rotate(0); }
+  to   { transform: rotate(360deg); }
+}
+.dog-side.eat img {
+  animation: dogEat 0.4s ease-in-out;
+}
+@keyframes dogEat {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.15,0.88); }
+}
+
+/* Sparkles around dog */
+.dog-side .sparkle {
+  position: absolute;
+  font-size: 16px;
+  opacity: 0;
+  pointer-events: none;
+}
+.dog-side.sparkling .sparkle {
+  animation: sparkleFly 0.9s ease-out forwards;
+}
+.dog-side .sparkle:nth-child(2) { top: 8px; left: 0;   animation-delay: 0s; }
+.dog-side .sparkle:nth-child(3) { top: 4px; right: 0;  animation-delay: 0.1s; }
+.dog-side .sparkle:nth-child(4) { top: 28px; left: -8px; animation-delay: 0.2s; }
+.dog-side .sparkle:nth-child(5) { top: 28px; right: -8px; animation-delay: 0.15s; }
+@keyframes sparkleFly {
+  0%   { opacity: 0; transform: translateY(0) scale(0.5); }
+  30%  { opacity: 1; transform: translateY(-8px) scale(1.2); }
+  100% { opacity: 0; transform: translateY(-30px) scale(0.7) rotate(180deg); }
+}
+
+/* Dog speech bubble */
+#dog-bubble {
+  position: absolute;
+  bottom: 72px; left: 50%;
+  transform: translateX(-50%) scale(0);
+  background: #fff;
+  border: 3px solid #ff6b9d;
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  color: #c44678;
+  white-space: nowrap;
+  box-shadow: 0 3px 0 #c44678;
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  z-index: 5;
+  max-width: 160px;
+}
+#dog-bubble::after {
+  content: ""; position: absolute;
+  bottom: -10px; left: 50%; transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: #ff6b9d;
+}
+#dog-bubble::before {
+  content: ""; position: absolute;
+  bottom: -6px; left: 50%; transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #fff;
+  z-index: 1;
+}
+#dog-bubble.show { transform: translateX(-50%) scale(1); }
+
+/* ===== TOUCH CONTROLS ===== */
+.touch-controls {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  padding: 6px 8px 10px;
+  width: 100%;
+  max-width: 460px;
+  flex-shrink: 0;
+}
+.touch-btn {
+  background: #fff;
+  color: #8b4513;
+  border: 3px solid #8b4513;
+  border-radius: 14px;
+  font-size: 20px;
+  font-weight: 900;
+  padding: 12px 0;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #5c3317;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 0.06s, box-shadow 0.06s;
+  font-family: inherit;
+  user-select: none;
+}
+.touch-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #5c3317;
+}
+.touch-btn.drop-btn {
+  background: linear-gradient(135deg, #ffb347, #ff8c00);
+  color: #fff;
+  border-color: #c44c00;
+  box-shadow: 0 4px 0 #8b3400;
+  font-size: 14px;
+}
+.touch-btn.drop-btn:active { box-shadow: 0 1px 0 #8b3400; }
+.touch-btn.hold-btn {
+  background: #fff4e8;
+  color: #8b4513;
+  font-size: 14px;
+}
+.touch-btn.hissatsu-btn {
+  background: linear-gradient(135deg, #ff9ec4, #ff3b6e);
+  color: #fff;
+  border-color: #c44678;
+  box-shadow: 0 4px 0 #8a2750;
+  font-size: 16px;
+  grid-column: span 2;
+}
+.touch-btn.hissatsu-btn:active { box-shadow: 0 1px 0 #8a2750; }
+.touch-btn.hissatsu-btn.ready {
+  animation: hissatsuReady 0.6s ease-in-out infinite alternate;
+}
+@keyframes hissatsuReady {
+  from { box-shadow: 0 4px 0 #8a2750, 0 0 8px #ff6b9d; transform: translateY(0); }
+  to   { box-shadow: 0 4px 0 #8a2750, 0 0 24px #ff3b6e; transform: translateY(-2px); }
+}
+
+/* ===== HISSATSU EFFECT ===== */
+#hissatsu-effect {
+  position: fixed; top:0; left:0; width:100%; height:100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; z-index: 200;
+  transition: opacity 0.25s;
+  background: radial-gradient(ellipse at center, rgba(255,107,157,0.6) 0%, rgba(255,183,77,0.3) 50%, rgba(0,0,0,0) 75%);
+}
+#hissatsu-effect.active { opacity: 1; pointer-events: auto; }
+#hissatsu-title {
+  font-size: 28px; font-weight: 900;
+  text-shadow: 0 0 24px currentColor, 3px 3px 0 #fff, -1px -1px 0 #000;
+  text-align: center;
+  animation: hissatsuTitleIn 0.5s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes hissatsuTitleIn {
+  from { transform: scale(0) rotate(-20deg); opacity: 0; }
+  to   { transform: scale(1) rotate(0); opacity: 1; }
+}
+#hissatsu-sub {
+  font-size: 14px; color: #5c3317; margin-top: 6px;
+  background: #fff; padding: 4px 12px; border-radius: 999px;
+  border: 3px solid #8b4513;
+  box-shadow: 0 3px 0 #5c3317;
+}
+#hissatsu-dog-img {
+  width: 80px; height: 80px; border-radius: 50%;
+  border: 5px solid #fff;
+  box-shadow: 0 0 0 4px #ff6b9d, 0 6px 20px rgba(0,0,0,0.3);
+  margin-top: 14px;
+  animation: hissatsuSpin 0.7s linear;
+}
+@keyframes hissatsuSpin {
+  from { transform: rotate(0) scale(0.5); }
+  to   { transform: rotate(720deg) scale(1); }
+}
+
+/* ===== OVERLAY ===== */
+#overlay {
+  position: fixed; top:0; left:0; width:100%; height:100%;
+  background: rgba(255,230,240,0.92);
+  backdrop-filter: blur(6px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 300;
+  padding: 20px;
+}
+#overlay.hidden { display: none; }
+#overlay img {
+  width: 96px; height: 96px; border-radius: 50%;
+  margin-bottom: 16px;
+  border: 5px solid #fff;
+  box-shadow: 0 0 0 4px #ff6b9d, 0 8px 20px rgba(0,0,0,0.15);
+  animation: overlayDogBob 2s ease-in-out infinite;
+}
+@keyframes overlayDogBob {
+  0%,100% { transform: translateY(0) rotate(-3deg); }
+  50%     { transform: translateY(-8px) rotate(3deg); }
+}
+#overlay h1 {
+  font-size: 32px; font-weight: 900;
+  background: linear-gradient(135deg, #ff6b9d 0%, #ff9966 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+  text-align: center;
+}
+#overlay .overlay-sub {
+  font-size: 15px; color: #8b4513; margin-bottom: 8px; text-align: center;
+}
+#overlay .overlay-score {
+  font-size: 18px; color: #c44678;
+  background: #fff;
+  padding: 6px 18px; border-radius: 999px;
+  border: 3px solid #ff6b9d;
+  box-shadow: 0 3px 0 #c44678;
+  margin-bottom: 18px;
+}
+#overlay button {
+  background: linear-gradient(135deg, #ff9ec4, #ff3b6e);
+  color: #fff; border: 4px solid #c44678; border-radius: 999px;
+  padding: 14px 40px; font-size: 20px; font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 5px 0 #8a2750;
+  font-family: inherit;
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+#overlay button:active {
+  transform: translateY(3px); box-shadow: 0 2px 0 #8a2750;
+}
+
+/* Tutorial in start overlay */
+.tutorial {
+  background: #fff;
+  border: 3px solid #ff6b9d;
+  border-radius: 14px;
+  padding: 8px 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 3px 0 #c44678;
+  max-width: 280px;
+  width: 100%;
+}
+.tutorial.hidden { display: none; }
+.tuto-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 3px 0;
+  font-size: 13px; color: #5c3317;
+}
+.tuto-key {
+  background: linear-gradient(135deg, #ffe8d6, #ffd4cc);
+  border: 2px solid #8b4513;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-weight: 900; color: #8b4513;
+  min-width: 58px; text-align: center; flex-shrink: 0;
+  font-size: 12px;
+}
+
+/* Overlay stats (clear count) */
+.overlay-stats {
+  font-size: 12px; color: #8b4513;
+  margin-bottom: 10px;
+  text-align: center;
+  line-height: 1.5;
+}
+.overlay-stats strong { color: #c44678; font-size: 14px; }
+
+/* Idle / pause/ tutorial hidden state */
+#overlay.tutorial-hidden .tutorial { display: none; }
+@media (max-width: 400px) {
+  .tuto-row { font-size: 12px; }
+  .tutorial { padding: 6px 10px; }
+}
+
+/* ===== PARTICLES (line clear confetti) ===== */
+#particle-layer {
+  position: fixed; top:0; left:0; width:100%; height:100%;
+  pointer-events: none; z-index: 150; overflow: hidden;
+}
+.confetti {
+  position: absolute;
+  width: 10px; height: 10px;
+  font-size: 18px;
+  will-change: transform, opacity;
+  animation: confettiFall 1.6s ease-out forwards;
+}
+@keyframes confettiFall {
+  0%   { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+  100% { opacity: 0; transform: translateY(var(--dy,200px)) translateX(var(--dx,0)) rotate(var(--rot,360deg)) scale(0.6); }
+}
+
+/* ===== Milestone popup ===== */
+.milestone-pop {
+  position: fixed; top: 28%; left: 50%;
+  transform: translate(-50%,-50%);
+  font-size: 34px; font-weight: 900;
+  text-shadow: 3px 3px 0 #fff, 5px 5px 0 rgba(0,0,0,0.15);
+  pointer-events: none; z-index: 180;
+  animation: milestoneFade 1.8s ease-out forwards;
+  white-space: nowrap;
+}
+@keyframes milestoneFade {
+  0%   { opacity:0; transform: translate(-50%,-50%) scale(0.4) rotate(-10deg); }
+  20%  { opacity:1; transform: translate(-50%,-55%) scale(1.3) rotate(5deg); }
+  50%  { opacity:1; transform: translate(-50%,-60%) scale(1) rotate(0); }
+  100% { opacity:0; transform: translate(-50%,-90%) scale(0.7) rotate(0); }
+}
+
+/* Shake */
+.shake { animation: shakeAnim 0.15s infinite alternate; }
+@keyframes shakeAnim { from{transform:translateX(-3px)} to{transform:translateX(3px)} }
+
+/* Screen shake (bigger, for tetris/hissatsu) */
+.game-container.screen-shake { animation: screenShake 0.5s cubic-bezier(0.36,0.07,0.19,0.97); }
+.game-container.screen-shake-big { animation: screenShakeBig 0.7s cubic-bezier(0.36,0.07,0.19,0.97); }
+@keyframes screenShake {
+  10%, 90% { transform: translate(-2px,0); }
+  20%, 80% { transform: translate(3px,0); }
+  30%, 50%, 70% { transform: translate(-5px,1px); }
+  40%, 60% { transform: translate(5px,-1px); }
+}
+@keyframes screenShakeBig {
+  10%, 90% { transform: translate(-4px,-2px) rotate(-0.3deg); }
+  20%, 80% { transform: translate(6px,2px) rotate(0.3deg); }
+  30%, 50%, 70% { transform: translate(-9px,3px) rotate(-0.5deg); }
+  40%, 60% { transform: translate(9px,-3px) rotate(0.5deg); }
+}
+
+/* Screen flash overlay */
+#screen-flash {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 190;
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+#screen-flash.on { animation: flashAnim 0.35s ease-out; }
+@keyframes flashAnim {
+  0% { opacity: 0; }
+  20% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+/* Dog panic */
+.dog-side.panic img {
+  animation: dogPanic 0.25s linear infinite !important;
+  border-color: #ff3b6e !important;
+  box-shadow: 0 4px 0 #8a2750, 0 0 0 3px #ff3b6e, 0 0 16px #ff3b6e !important;
+}
+@keyframes dogPanic {
+  0%   { transform: translate(-3px,-2px) rotate(-8deg) scale(1.05); }
+  25%  { transform: translate(3px,-4px) rotate(8deg) scale(1.1); }
+  50%  { transform: translate(-2px,-6px) rotate(-6deg) scale(1.05); }
+  75%  { transform: translate(4px,-3px) rotate(6deg) scale(1.1); }
+  100% { transform: translate(-3px,-2px) rotate(-8deg) scale(1.05); }
+}
+
+/* Dog eating ramen */
+.dog-side.eating-ramen img {
+  animation: dogEatingRamen 0.5s ease-in-out infinite;
+}
+@keyframes dogEatingRamen {
+  0%,100% { transform: translateY(-2px) rotate(-3deg) scale(1); }
+  50%     { transform: translateY(1px)  rotate(3deg)  scale(1.04,0.95); }
+}
+
+/* Dog rare special: rainbow bounce */
+.dog-side.special img {
+  animation: dogSpecial 1.2s ease-in-out !important;
+  box-shadow: 0 0 0 4px #ff6b9d, 0 0 20px #ffd54f, 0 0 40px #81d4fa !important;
+}
+@keyframes dogSpecial {
+  0%   { transform: translateY(0) rotate(0) scale(1); filter: hue-rotate(0deg); }
+  20%  { transform: translateY(-30px) rotate(-20deg) scale(1.2); filter: hue-rotate(90deg); }
+  40%  { transform: translateY(-45px) rotate(20deg) scale(1.3); filter: hue-rotate(180deg); }
+  60%  { transform: translateY(-30px) rotate(-15deg) scale(1.2); filter: hue-rotate(270deg); }
+  80%  { transform: translateY(-15px) rotate(10deg) scale(1.1); filter: hue-rotate(360deg); }
+  100% { transform: translateY(0) rotate(0) scale(1); filter: hue-rotate(0deg); }
+}
+
+/* Combo popup */
+.combo-popup {
+  position: fixed;
+  top: 40%; left: 50%;
+  transform: translate(-50%,-50%) scale(0);
+  font-size: 44px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow:
+    -3px -3px 0 #ff3b6e, 3px -3px 0 #ff3b6e,
+    -3px 3px 0 #ff3b6e, 3px 3px 0 #ff3b6e,
+    0 0 20px #ff6b9d, 0 8px 0 rgba(0,0,0,0.15);
+  pointer-events: none;
+  z-index: 185;
+  animation: comboPop 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.combo-popup .combo-num { font-size: 68px; color: #ffd54f; }
+@keyframes comboPop {
+  0%   { transform: translate(-50%,-50%) scale(0) rotate(-30deg); opacity: 0; }
+  30%  { transform: translate(-50%,-55%) scale(1.4) rotate(8deg); opacity: 1; }
+  60%  { transform: translate(-50%,-55%) scale(1) rotate(-3deg); opacity: 1; }
+  100% { transform: translate(-50%,-75%) scale(0.85) rotate(0); opacity: 0; }
+}
+
+/* Pinch warning: game canvas pulse (softer so eyes don't tire) */
+#game-canvas.danger {
+  animation: dangerPulse 1.2s ease-in-out infinite alternate;
+}
+@keyframes dangerPulse {
+  from { border-color: #8b4513; box-shadow: 0 6px 0 #5c3317, 0 10px 30px rgba(139,69,19,0.25); }
+  to   { border-color: #ff6b9d; box-shadow: 0 6px 0 #c44678, 0 0 14px rgba(255,107,157,0.6); }
+}
+
+/* Large screen tweaks */
+@media (min-width: 600px) {
+  .brand-name { font-size: 18px; }
+  .brand-logo { width: 40px; height: 40px; }
+  .score-cell .s-val { font-size: 28px; }
+  .score-cell .s-label { font-size: 11px; }
+  .touch-controls { max-width: 520px; }
+  .touch-btn { font-size: 22px; padding: 14px 0; }
+  .dog-side { width: 110px; height: 100px; }
+  .dog-side img { width: 84px; height: 84px; }
+  #dog-bubble { font-size: 13px; }
+}
+</style>
+</head>
+<body>
+
+<div class="game-container">
+
+  <!-- HEADER -->
+  <div class="app-header">
+    <div class="brand">
+      <img class="brand-logo" id="title-dog" src="https://menyaken.com/wp-content/uploads/2023/09/%E3%81%91%E3%82%93%E3%83%AD%E3%82%B4%E3%83%95%E3%82%A1%E3%83%93%E3%82%B3%E3%83%B3.png" alt="けん">
+      <span class="brand-name">麺やけんテトリス</span>
+    </div>
+    <div class="header-btns">
+      <button id="pause-btn" onclick="togglePause()">&#x23F8;</button>
+      <button id="bgm-btn" onclick="toggleBGM()">&#x1F507; BGM</button>
+    </div>
+  </div>
+
+  <!-- SCORE STRIP -->
+  <div class="score-strip">
+    <div class="score-cell pink" id="cell-score">
+      <div class="s-label">SCORE</div>
+      <div class="s-val" id="score">0</div>
+    </div>
+    <div class="score-cell" id="cell-level">
+      <div class="s-label">LEVEL</div>
+      <div class="s-val" id="level">1</div>
+    </div>
+    <div class="score-cell" id="cell-lines">
+      <div class="s-label">LINES</div>
+      <div class="s-val" id="lines">0</div>
+    </div>
+    <div class="score-cell pink" id="cell-best">
+      <div class="s-label">BEST</div>
+      <div class="s-val" id="best">0</div>
+    </div>
+  </div>
+
+  <!-- PLAY AREA -->
+  <div class="play-area">
+    <canvas id="game-canvas"></canvas>
+    <div class="side-panel">
+      <div class="mini-box">
+        <div class="mini-label">NEXT</div>
+        <canvas id="next-canvas" width="60" height="60"></canvas>
+        <canvas id="next-canvas-2" width="40" height="40"></canvas>
+        <canvas id="next-canvas-3" width="40" height="40"></canvas>
+      </div>
+      <div class="mini-box">
+        <div class="mini-label">HOLD</div>
+        <canvas id="hold-canvas" width="60" height="60"></canvas>
+      </div>
+      <div class="gauge-box" id="gauge-box">
+        <div class="gauge-label" id="hissatsu-label">必殺ゲージ</div>
+        <div class="gauge-bar-outer"><div class="gauge-bar-inner" id="hissatsu-gauge"></div></div>
+        <div class="gauge-paws" id="hissatsu-paws"></div>
+      </div>
+      <div class="dog-side" id="dog-side">
+        <div id="dog-bubble"></div>
+        <span class="sparkle">&#x2728;</span>
+        <span class="sparkle">&#x2728;</span>
+        <span class="sparkle">&#x2728;</span>
+        <span class="sparkle">&#x2728;</span>
+        <img id="side-dog" src="https://menyaken.com/wp-content/uploads/2023/09/%E3%81%91%E3%82%93%E3%83%AD%E3%82%B4%E3%83%95%E3%82%A1%E3%83%93%E3%82%B3%E3%83%B3.png" alt="けん">
+      </div>
+    </div>
+  </div>
+
+  <!-- TOUCH CONTROLS -->
+  <div class="touch-controls" id="touch-controls">
+    <div class="touch-btn" data-action="left">&larr;</div>
+    <div class="touch-btn" data-action="right">&rarr;</div>
+    <div class="touch-btn" data-action="down">&darr;</div>
+    <div class="touch-btn" data-action="rotate">&#x21BB;</div>
+    <div class="touch-btn drop-btn" data-action="drop">DROP</div>
+    <div class="touch-btn hold-btn" data-action="hold">HOLD</div>
+    <div class="touch-btn hissatsu-btn" id="hissatsu-touch-btn" data-action="hissatsu">&#x2728; 必 殺 &#x2728;</div>
+  </div>
+</div>
+
+<!-- Hissatsu overlay -->
+<div id="hissatsu-effect">
+  <div id="hissatsu-title"></div>
+  <div id="hissatsu-sub"></div>
+  <img id="hissatsu-dog-img" src="https://menyaken.com/wp-content/uploads/2023/09/%E3%81%91%E3%82%93%E3%83%AD%E3%82%B4%E3%83%95%E3%82%A1%E3%83%93%E3%82%B3%E3%83%B3.png" alt="けん">
+</div>
+
+<!-- Start / gameover overlay -->
+<div id="overlay">
+  <img src="https://menyaken.com/wp-content/uploads/2023/09/%E3%81%91%E3%82%93%E3%83%AD%E3%82%B4%E3%83%95%E3%82%A1%E3%83%93%E3%82%B3%E3%83%B3.png" alt="けん">
+  <h1 id="overlay-title">麺やけんテトリス</h1>
+  <div class="overlay-sub" id="overlay-sub">ラーメンの具材を積み上げろ！</div>
+  <div class="overlay-score" id="overlay-score">めざせ10000点&#x1F3C6;</div>
+  <div id="tutorial" class="tutorial">
+    <div class="tuto-row"><span class="tuto-key">&larr; &rarr;</span><span>左右に移動</span></div>
+    <div class="tuto-row"><span class="tuto-key">&#x21BB;</span><span>回転</span></div>
+    <div class="tuto-row"><span class="tuto-key">&darr;</span><span>1マス下げる</span></div>
+    <div class="tuto-row"><span class="tuto-key">DROP</span><span>一気に落とす</span></div>
+    <div class="tuto-row"><span class="tuto-key">HOLD</span><span>1回だけピースを保存</span></div>
+    <div class="tuto-row"><span class="tuto-key">&#x2728;必殺</span><span>ゲージ満タンで発動</span></div>
+  </div>
+  <div class="overlay-stats" id="overlay-stats"></div>
+  <button id="overlay-btn" onclick="startGame()">いただきます！</button>
+</div>
+
+<!-- Particle layer -->
+<div id="particle-layer"></div>
+<!-- Screen flash -->
+<div id="screen-flash"></div>
+
+<script>
+// ===== AUDIO ENGINE =====
+let audioCtx = null;
+let bgmPlaying = false;
+let masterGain = null;
+let bgmScheduleTimeout = null;
+let currentBGMTier = 0;
+
+function getAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.22;
+    masterGain.connect(audioCtx.destination);
+  }
+  return audioCtx;
+}
+
+const NOTE_FREQ = {
+  'C3':130.81,'D3':146.83,'E3':164.81,'F3':174.61,'G3':196,'A3':220,'B3':246.94,
+  'C4':261.63,'D4':293.66,'E4':329.63,'F4':349.23,'G4':392,'A4':440,'A4S':466.16,'B4':493.88,
+  'C5':523.25,'D5':587.33,'E5':659.25,'F5':698.46,'G5':784,'A5':880,'B5':987.77,
+  'C6':1046.50,
+  'R':0
+};
+
+// 麺やけんオリジナルテーマ（warm, hearty, BPM 118）
+// テンポは通しで一定。区切りではメロディを変えずファンファーレのみ鳴らす。
+const BGM_BPM = 118;
+const MELODY_MAIN = [
+  ['C5',0.75],['E5',0.25],['G5',0.5],['C6',0.5],
+  ['B5',0.75],['G5',0.25],['E5',1.0],
+  ['A4',0.75],['C5',0.25],['E5',0.5],['A5',0.5],
+  ['G5',0.75],['E5',0.25],['C5',1.0],
+  ['F4',0.75],['A4',0.25],['C5',0.5],['F5',0.5],
+  ['E5',0.75],['C5',0.25],['A4',1.0],
+  ['G4',0.5],['B4',0.5],['D5',0.5],['G5',0.5],
+  ['F5',0.75],['D5',0.25],['C5',1.0],['G4',0.5],
+  ['C5',2.0]
+];
+const BASS_MAIN = [
+  ['C3',1],['G3',1],['A3',1],['E3',1],
+  ['F3',1],['G3',1],['C3',1],['G3',1]
+];
+function getMelody(tier) { return MELODY_MAIN; }
+function getBass(tier)   { return BASS_MAIN; }
+function getBPM(tier)    { return BGM_BPM; }
+
+function playNote(freq, startTime, duration, type, vol, ac) {
+  if (!freq || freq === 0) return;
+  type = type || 'square'; vol = vol || 0.15; ac = ac || audioCtx;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, startTime);
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(vol, startTime + 0.01);
+  gain.gain.setValueAtTime(vol, startTime + duration * 0.7);
+  gain.gain.linearRampToValueAtTime(0, startTime + duration * 0.98);
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start(startTime);
+  osc.stop(startTime + duration);
+}
+
+function scheduleBGMLoop(startTime) {
+  if (!bgmPlaying) return;
+  var ac = getAudioCtx();
+  var melody = getMelody(currentBGMTier);
+  var bass = getBass(currentBGMTier);
+  var beat = 60 / getBPM(currentBGMTier);
+  var t = startTime;
+  for (var i = 0; i < melody.length; i++) {
+    var note = melody[i][0], beats = melody[i][1];
+    var dur = beats * beat;
+    var freq = NOTE_FREQ[note] || 0;
+    // Softer melody: sine wave + lower vol. Less piercing.
+    playNote(freq, t, dur * 0.85, 'sine', 0.07, ac);
+    t += dur;
+  }
+  var bt = startTime;
+  while (bt < t) {
+    for (var j = 0; j < bass.length; j++) {
+      if (bt >= t) break;
+      var bn = bass[j][0], bb = bass[j][1];
+      var bdur = bb * beat;
+      var bfreq = NOTE_FREQ[bn] || 0;
+      playNote(bfreq, bt, bdur * 0.7, 'triangle', 0.06, ac);
+      bt += bdur;
+    }
+  }
+  var loopDuration = t - startTime;
+  bgmScheduleTimeout = setTimeout(function() { scheduleBGMLoop(ac.currentTime + 0.05); }, (loopDuration - 0.2) * 1000);
+}
+
+function startBGM() {
+  if (bgmPlaying) return;
+  var ac = getAudioCtx();
+  if (ac.state === 'suspended') ac.resume();
+  bgmPlaying = true;
+  scheduleBGMLoop(ac.currentTime + 0.1);
+  var btn = document.getElementById('bgm-btn');
+  btn.innerHTML = '\uD83C\uDFB5 BGM';
+  btn.classList.add('on');
+}
+function stopBGM() {
+  bgmPlaying = false;
+  clearTimeout(bgmScheduleTimeout);
+  var btn = document.getElementById('bgm-btn');
+  btn.innerHTML = '\uD83D\uDD07 BGM';
+  btn.classList.remove('on');
+}
+// 3-state BGM: off → low → on → off
+var bgmLevel = 1; // 0=off, 1=low, 2=on
+function setBGMLevel(lv) {
+  bgmLevel = lv;
+  if (masterGain) {
+    if (lv === 0) masterGain.gain.value = 0;
+    else if (lv === 1) masterGain.gain.value = 0.14;
+    else masterGain.gain.value = 0.22;
+  }
+  var btn = document.getElementById('bgm-btn');
+  if (lv === 0) {
+    if (bgmPlaying) stopBGM();
+    btn.innerHTML = '\uD83D\uDD07 BGM';
+    btn.classList.remove('on');
+  } else {
+    if (!bgmPlaying) startBGM();
+    btn.innerHTML = (lv === 1 ? '\uD83D\uDD09' : '\uD83C\uDFB5') + ' BGM';
+    btn.classList.add('on');
+  }
+}
+function toggleBGM() { setBGMLevel((bgmLevel + 1) % 3); }
+
+function restartBGMWithNewTier(tier) {
+  // Single-tune mode: just remember the tier for milestone tracking,
+  // but don't interrupt the current loop.
+  currentBGMTier = tier;
+}
+
+let milestoneHit = { 1: false, 2: false, 3: false };
+
+function checkBGMTier() {
+  var newTier = 0;
+  if (score >= 9000) newTier = 3;
+  else if (score >= 6000) newTier = 2;
+  else if (score >= 3000) newTier = 1;
+
+  if (newTier > currentBGMTier && !milestoneHit[newTier]) {
+    milestoneHit[newTier] = true;
+    var msgs = { 1: 'よっしゃ！3000点！', 2: 'やるやん！6000点！', 3: 'ここからや！9000点！' };
+    var cols = { 1: '#ff9966', 2: '#ff6b9d', 3: '#c44678' };
+    showDogBubble(msgs[newTier], cols[newTier]);
+    triggerDogHop('sparkling');
+    sfxMilestone(newTier);
+    showMilestoneEffect(msgs[newTier], cols[newTier]);
+    restartBGMWithNewTier(newTier);
+  } else if (newTier > currentBGMTier) {
+    restartBGMWithNewTier(newTier);
+  }
+
+  if (score >= 10000) triggerVictory();
+}
+
+function sfxMilestone(tier) {
+  var ac = getAudioCtx();
+  var t = ac.currentTime;
+  var scales = { 1:[523,659,784,1047], 2:[659,784,1047,1319,1568], 3:[784,1047,1319,1568,1760,2093] };
+  var freqs = scales[tier] || scales[1];
+  freqs.forEach(function(f, i) {
+    var osc = ac.createOscillator();
+    var g = ac.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(f, t + i * 0.08);
+    g.gain.setValueAtTime(0.2, t + i * 0.08);
+    g.gain.linearRampToValueAtTime(0, t + i * 0.08 + 0.25);
+    osc.connect(g); g.connect(masterGain);
+    osc.start(t + i * 0.08); osc.stop(t + i * 0.08 + 0.28);
+  });
+}
+
+function showMilestoneEffect(msg, color) {
+  var div = document.createElement('div');
+  div.className = 'milestone-pop';
+  div.style.color = color;
+  div.textContent = msg;
+  document.body.appendChild(div);
+  setTimeout(function() { div.remove(); }, 1800);
+  spawnConfetti(30, color);
+}
+
+// ===== SOUND EFFECTS =====
+function sfxLand() {
+  var ac = getAudioCtx(); var t = ac.currentTime;
+  var osc = ac.createOscillator(); var g = ac.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(120, t);
+  osc.frequency.linearRampToValueAtTime(60, t + 0.08);
+  g.gain.setValueAtTime(0.25, t);
+  g.gain.linearRampToValueAtTime(0, t + 0.1);
+  osc.connect(g); g.connect(masterGain);
+  osc.start(t); osc.stop(t + 0.1);
+}
+
+function sfxLineClear(count) {
+  var ac = getAudioCtx(); var t = ac.currentTime;
+  var scales = [
+    [523, 659, 784],
+    [523, 659, 784, 1047],
+    [523, 659, 784, 1047, 1319],
+    [523, 659, 784, 1047, 1319, 1568],
+  ];
+  var freqs = scales[Math.min(count - 1, 3)];
+  freqs.forEach(function(f, i) {
+    var osc = ac.createOscillator(); var g = ac.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(f, t + i * 0.07);
+    g.gain.setValueAtTime(0, t + i * 0.07);
+    g.gain.linearRampToValueAtTime(0.18, t + i * 0.07 + 0.02);
+    g.gain.linearRampToValueAtTime(0, t + i * 0.07 + 0.18);
+    osc.connect(g); g.connect(masterGain);
+    osc.start(t + i * 0.07); osc.stop(t + i * 0.07 + 0.2);
+  });
+  if (count === 4) {
+    setTimeout(function() {
+      var fanfare = [784, 1047, 1319, 1568, 1319, 1047, 1568];
+      fanfare.forEach(function(f, i) {
+        var ac2 = getAudioCtx(); var t2 = ac2.currentTime;
+        var osc = ac2.createOscillator(); var g = ac2.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(f, t2 + i * 0.09);
+        g.gain.setValueAtTime(0.2, t2 + i * 0.09);
+        g.gain.linearRampToValueAtTime(0, t2 + i * 0.09 + 0.15);
+        osc.connect(g); g.connect(masterGain);
+        osc.start(t2 + i * 0.09); osc.stop(t2 + i * 0.09 + 0.18);
+      });
+    }, 400);
+  }
+}
+
+function sfxHissatsu() {
+  var ac = getAudioCtx(); var t = ac.currentTime;
+  var notes = [220, 277, 330, 440, 330, 440, 554, 659, 554, 659, 784, 1047];
+  notes.forEach(function(f, i) {
+    var osc = ac.createOscillator(); var g = ac.createGain();
+    osc.type = i < 6 ? 'sawtooth' : 'square';
+    osc.frequency.setValueAtTime(f, t + i * 0.06);
+    g.gain.setValueAtTime(0.22, t + i * 0.06);
+    g.gain.linearRampToValueAtTime(0, t + i * 0.06 + 0.18);
+    osc.connect(g); g.connect(masterGain);
+    osc.start(t + i * 0.06); osc.stop(t + i * 0.06 + 0.2);
+  });
+  var osc2 = ac.createOscillator(); var g2 = ac.createGain();
+  var lfo = ac.createOscillator(); var lfoG = ac.createGain();
+  osc2.type = 'square';
+  osc2.frequency.setValueAtTime(1047, t + 0.85);
+  lfo.frequency.setValueAtTime(12, t + 0.85);
+  lfoG.gain.setValueAtTime(30, t + 0.85);
+  lfo.connect(lfoG); lfoG.connect(osc2.frequency);
+  g2.gain.setValueAtTime(0.25, t + 0.85);
+  g2.gain.linearRampToValueAtTime(0, t + 1.5);
+  osc2.connect(g2); g2.connect(masterGain);
+  lfo.start(t + 0.85); osc2.start(t + 0.85);
+  lfo.stop(t + 1.6); osc2.stop(t + 1.6);
+}
+
+function sfxGameOver() {
+  var ac = getAudioCtx(); var t = ac.currentTime;
+  var notes = [523, 494, 466, 440, 415, 392, 349, 294, 261];
+  notes.forEach(function(f, i) {
+    var osc = ac.createOscillator(); var g = ac.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(f, t + i * 0.12);
+    g.gain.setValueAtTime(0.2, t + i * 0.12);
+    g.gain.linearRampToValueAtTime(0, t + i * 0.12 + 0.2);
+    osc.connect(g); g.connect(masterGain);
+    osc.start(t + i * 0.12); osc.stop(t + i * 0.12 + 0.25);
+  });
+}
+
+function sfxGaugeReady() {
+  var ac = getAudioCtx(); var t = ac.currentTime;
+  [784, 1047, 1319].forEach(function(f, i) {
+    var osc = ac.createOscillator(); var g = ac.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(f, t + i * 0.1);
+    g.gain.setValueAtTime(0.18, t + i * 0.1);
+    g.gain.linearRampToValueAtTime(0, t + i * 0.1 + 0.18);
+    osc.connect(g); g.connect(masterGain);
+    osc.start(t + i * 0.1); osc.stop(t + i * 0.1 + 0.2);
+  });
+}
+
+function sfxVictory() {
+  var ac = getAudioCtx(); var t = ac.currentTime;
+  var fanfare = [523, 659, 784, 1047, 784, 1047, 1319, 1568, 1047, 1319, 1568, 2093];
+  fanfare.forEach(function(f, i) {
+    var osc = ac.createOscillator(); var g = ac.createGain();
+    osc.type = i < 8 ? 'square' : 'sawtooth';
+    osc.frequency.setValueAtTime(f, t + i * 0.1);
+    g.gain.setValueAtTime(0.22, t + i * 0.1);
+    g.gain.linearRampToValueAtTime(0, t + i * 0.1 + 0.28);
+    osc.connect(g); g.connect(masterGain);
+    osc.start(t + i * 0.1); osc.stop(t + i * 0.1 + 0.32);
+  });
+}
+
+// ===== GAME CONSTANTS =====
+var canvas = document.getElementById('game-canvas');
+var ctx = canvas.getContext('2d');
+var nextCanvas = document.getElementById('next-canvas');
+var nextCtx = nextCanvas.getContext('2d');
+var nextCanvas2 = document.getElementById('next-canvas-2');
+var nextCtx2 = nextCanvas2.getContext('2d');
+var nextCanvas3 = document.getElementById('next-canvas-3');
+var nextCtx3 = nextCanvas3.getContext('2d');
+var holdCanvas = document.getElementById('hold-canvas');
+var holdCtx = holdCanvas.getContext('2d');
+
+var COLS = 10, ROWS = 20;
+var CELL = 30;
+
+// Pop kawaii flat colors
+var COLORS = [
+  null,
+  '#ffd54f', // I - 麺
+  '#ff9966', // O - チャーシュー丼
+  '#b39ddb', // T - 叉焼
+  '#81c784', // S - ほうれん草
+  '#f48fb1', // Z - 味玉
+  '#81d4fa', // J - メンマ
+  '#ef5350', // L - チャーシュー
+];
+var BORDERS = [
+  null,
+  '#e65100',
+  '#bf360c',
+  '#4527a0',
+  '#1b5e20',
+  '#ad1457',
+  '#01579b',
+  '#b71c1c',
+];
+
+var ICONS = ['','\uD83C\uDF5C','\uD83C\uDF71','\uD83E\uDD69','\uD83E\uDD6C','\uD83E\uDD5A','\uD83C\uDF8B','\uD83E\uDD69'];
+
+var PIECES = [
+  null,
+  [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+  [[2,2],[2,2]],
+  [[0,3,0],[3,3,3],[0,0,0]],
+  [[0,4,4],[4,4,0],[0,0,0]],
+  [[5,5,0],[0,5,5],[0,0,0]],
+  [[6,0,0],[6,6,6],[0,0,0]],
+  [[0,0,7],[7,7,7],[0,0,0]],
+];
+
+var HISSATSU_LIST = [
+  {name:'\uD83D\uDC15 ずぞぞぞ斬り!', sub:'底2ライン消去!', color:'#ff6b9d', effect:'clearBottom2'},
+  {name:'\uD83C\uDF5C 大盛りボム!', sub:'底3ライン消去!', color:'#ff9966', effect:'clearBottom3'},
+  {name:'\uD83C\uDF71 チャーシュー丼キャノン!', sub:'フィールド半分消去!', color:'#ff8c42', effect:'clearHalf'},
+  {name:'\uD83E\uDD69 チャーシュー炸裂!', sub:'同色ブロック全消去!', color:'#ef5350', effect:'clearColor'},
+];
+
+// ===== GAME STATE =====
+var board = [], currentPiece = null, pieceQueue = [], holdPiece = null;
+var canHold = true, score = 0, level = 1, lines = 0;
+var gameOver = false, paused = false, gameStarted = false;
+var dropInterval = 900, lastTime = 0, dropCounter = 0;
+var animating = false, flashRows = [];
+var bestScore = parseInt(localStorage.getItem('menyaKenBest') || '0');
+var hissatsuGauge = 0, hissatsuReady = false, hissatsuIndex = 0;
+var victoryTriggered = false;
+
+// ===== New state =====
+var comboCount = 0;               // consecutive line clears
+var lastActionTs = Date.now();    // timestamp of last player action
+var idleLoopHandle = null;        // setInterval handle for idle/pinch checking
+var pinchActive = false;          // board is in danger
+var myClearCount = parseInt(localStorage.getItem('menyaKenClears') || '0');
+var globalClearCount = 0;         // updated from API
+var pieceLandedCount = 0;         // for rare reactions
+var perfectClearHit = false;
+
+// Idle speech rotation
+var IDLE_QUOTES = [
+  'どうした〜？ずぞぞ〜',
+  'ぼーっとしてる？',
+  'チャーシュー、あ、いや',
+  'がんばれ〜🐾',
+  'ラーメン待ってるよ！',
+  '手が止まってるぞ〜'
+];
+var RAMEN_QUOTES = [
+  'ずぞぞぞ〜🍜',
+  'うまっ！',
+  '麺やけん最高〜',
+  'もぐもぐ🍜'
+];
+var RARE_QUOTES = [
+  'ええっ！！🤩',
+  'そんなアホな！',
+  '見事すぎる！',
+  '伝説作ってる！🌟'
+];
+
+document.getElementById('best').textContent = bestScore;
+
+// ===== CANVAS SIZING =====
+function resizeCanvas() {
+  var playArea = document.querySelector('.play-area');
+  var sidePanel = document.querySelector('.side-panel');
+  var sideWidth = sidePanel ? sidePanel.offsetWidth + 16 : 100;
+  var availW = playArea.clientWidth - sideWidth - 8;
+  var availH = playArea.clientHeight - 8;
+  var cellFromW = Math.floor(availW / COLS);
+  var cellFromH = Math.floor(availH / ROWS);
+  CELL = Math.min(cellFromW, cellFromH, 36);
+  CELL = Math.max(CELL, 12);
+  canvas.width = COLS * CELL;
+  canvas.height = ROWS * CELL;
+  if (gameStarted && !gameOver && !victoryTriggered) draw();
+}
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', function() { setTimeout(resizeCanvas, 200); });
+
+// ===== DOG (Carbuncle-style) =====
+var bubbleTimeout = null;
+function showDogBubble(text, color) {
+  var bubble = document.getElementById('dog-bubble');
+  bubble.textContent = text;
+  if (color) { bubble.style.borderColor = color; bubble.style.color = color; }
+  else { bubble.style.borderColor = '#ff6b9d'; bubble.style.color = '#c44678'; }
+  bubble.classList.add('show');
+  clearTimeout(bubbleTimeout);
+  bubbleTimeout = setTimeout(function() { bubble.classList.remove('show'); }, 2200);
+}
+
+function triggerDogHop(extraClass) {
+  var dog = document.getElementById('dog-side');
+  dog.classList.remove('hop','spin','eat','sparkling');
+  void dog.offsetWidth;
+  dog.classList.add('hop');
+  if (extraClass) dog.classList.add(extraClass);
+  setTimeout(function() { dog.classList.remove('hop', 'sparkling'); }, 900);
+}
+
+function triggerDogEat() {
+  var dog = document.getElementById('dog-side');
+  dog.classList.remove('hop','spin','eat');
+  void dog.offsetWidth;
+  dog.classList.add('eat');
+  setTimeout(function() { dog.classList.remove('eat'); }, 400);
+}
+
+function triggerDogSpin() {
+  var dog = document.getElementById('dog-side');
+  dog.classList.remove('hop','spin','eat');
+  void dog.offsetWidth;
+  dog.classList.add('spin');
+  setTimeout(function() { dog.classList.remove('spin'); }, 700);
+}
+
+// ===== SCREEN FX =====
+function triggerScreenShake(big) {
+  var gc = document.querySelector('.game-container');
+  gc.classList.remove('screen-shake','screen-shake-big');
+  void gc.offsetWidth;
+  gc.classList.add(big ? 'screen-shake-big' : 'screen-shake');
+  setTimeout(function() { gc.classList.remove('screen-shake','screen-shake-big'); }, big ? 700 : 500);
+}
+function triggerScreenFlash(color) {
+  var f = document.getElementById('screen-flash');
+  f.style.background = color || 'rgba(255,255,255,0.9)';
+  f.classList.remove('on');
+  void f.offsetWidth;
+  f.classList.add('on');
+  setTimeout(function(){ f.classList.remove('on'); }, 400);
+}
+
+// ===== COMBO =====
+function showComboPopup(n) {
+  if (n < 2) return;
+  var div = document.createElement('div');
+  div.className = 'combo-popup';
+  div.innerHTML = 'COMBO <span class="combo-num">x' + n + '</span>!';
+  document.body.appendChild(div);
+  setTimeout(function(){ div.remove(); }, 1200);
+  // Rising pitch SFX per combo
+  var ac = getAudioCtx(); var t = ac.currentTime;
+  var osc = ac.createOscillator(); var g = ac.createGain();
+  osc.type = 'square';
+  var base = 523 + Math.min(n, 10) * 80;
+  osc.frequency.setValueAtTime(base, t);
+  osc.frequency.exponentialRampToValueAtTime(base * 1.5, t + 0.18);
+  g.gain.setValueAtTime(0.22, t);
+  g.gain.linearRampToValueAtTime(0, t + 0.2);
+  osc.connect(g); g.connect(masterGain);
+  osc.start(t); osc.stop(t + 0.22);
+}
+
+// ===== PINCH DETECTION =====
+function isBoardPinch() {
+  // any block in top 4 rows?
+  for (var r = 0; r < 4; r++) {
+    for (var c = 0; c < COLS; c++) if (board[r][c]) return true;
+  }
+  return false;
+}
+function updatePinchState() {
+  var should = isBoardPinch() && gameStarted && !gameOver && !victoryTriggered;
+  if (should === pinchActive) return;
+  pinchActive = should;
+  var dog = document.getElementById('dog-side');
+  var cnv = document.getElementById('game-canvas');
+  if (pinchActive) {
+    dog.classList.add('panic');
+    cnv.classList.add('danger');
+    showDogBubble('ひゃああ〜！！😱', '#ff3b6e');
+  } else {
+    dog.classList.remove('panic');
+    cnv.classList.remove('danger');
+  }
+}
+
+// ===== IDLE / RAMEN EATING / ENCOURAGEMENT =====
+function resetIdle() {
+  lastActionTs = Date.now();
+  var dog = document.getElementById('dog-side');
+  dog.classList.remove('eating-ramen');
+}
+function startIdleLoop() {
+  if (idleLoopHandle) clearInterval(idleLoopHandle);
+  idleLoopHandle = setInterval(function() {
+    if (!gameStarted || paused || gameOver || victoryTriggered) return;
+    updatePinchState();
+    var idle = Date.now() - lastActionTs;
+    // After 8s of idle, chance of eating ramen
+    if (idle > 8000 && Math.random() < 0.25) {
+      var dog = document.getElementById('dog-side');
+      dog.classList.add('eating-ramen');
+      showDogBubble(RAMEN_QUOTES[Math.floor(Math.random()*RAMEN_QUOTES.length)], '#ff6b9d');
+      setTimeout(function(){ dog.classList.remove('eating-ramen'); }, 2200);
+      lastActionTs = Date.now() - 4000; // so it won't spam
+    }
+    // After 14s idle, encouragement
+    else if (idle > 14000) {
+      showDogBubble(IDLE_QUOTES[Math.floor(Math.random()*IDLE_QUOTES.length)], '#c44678');
+      lastActionTs = Date.now() - 5000;
+    }
+  }, 1500);
+}
+function stopIdleLoop() {
+  if (idleLoopHandle) { clearInterval(idleLoopHandle); idleLoopHandle = null; }
+}
+
+// ===== RARE REACTIONS =====
+function maybeTriggerRareReaction() {
+  // 1/60 chance per piece land, after 20 pieces
+  if (pieceLandedCount > 20 && Math.random() < 1/60) {
+    triggerRareReaction('random');
+  }
+}
+function triggerRareReaction(reason) {
+  var dog = document.getElementById('dog-side');
+  dog.classList.add('special');
+  showDogBubble(RARE_QUOTES[Math.floor(Math.random()*RARE_QUOTES.length)], '#c44678');
+  spawnConfetti(30, '#ff6b9d');
+  setTimeout(function(){ dog.classList.remove('special'); }, 1300);
+}
+
+// ===== PAUSE =====
+function togglePause() {
+  if (!gameStarted || gameOver || victoryTriggered) return;
+  paused = !paused;
+  var btn = document.getElementById('pause-btn');
+  if (paused) {
+    btn.textContent = '▶';
+    btn.classList.add('paused');
+    stopBGM();
+    showDogBubble('休憩〜☕', '#8b4513');
+  } else {
+    btn.textContent = '⏸';
+    btn.classList.remove('paused');
+    startBGM();
+    lastTime = performance.now();
+    lastActionTs = Date.now();
+    requestAnimationFrame(gameLoop);
+  }
+}
+
+// ===== CLEAR COUNTER (local + global) =====
+// Using abacus.jasoncameron.dev (free public counter, CORS-enabled)
+var COUNTER_BASE = 'https://abacus.jasoncameron.dev';
+var COUNTER_NS = 'menya-ken-tetris-v1';
+var COUNTER_KEY = 'clears';
+function fetchGlobalClearCount() {
+  try {
+    fetch(COUNTER_BASE + '/get/' + COUNTER_NS + '/' + COUNTER_KEY).then(function(r){ return r.json(); }).then(function(d){
+      if (d && typeof d.value === 'number') globalClearCount = d.value;
+      updateOverlayStats();
+    }).catch(function(){ /* ignore */ });
+  } catch(e) {}
+}
+function incrementGlobalClearCount() {
+  return new Promise(function(resolve) {
+    try {
+      fetch(COUNTER_BASE + '/hit/' + COUNTER_NS + '/' + COUNTER_KEY).then(function(r){ return r.json(); }).then(function(d){
+        if (d && typeof d.value === 'number') globalClearCount = d.value;
+        resolve(globalClearCount);
+      }).catch(function(){ resolve(null); });
+    } catch(e) { resolve(null); }
+  });
+}
+function updateOverlayStats() {
+  var el = document.getElementById('overlay-stats');
+  if (!el) return;
+  var lines = [];
+  if (myClearCount > 0) lines.push('あなたのクリア回数: <strong>' + myClearCount + '</strong>回');
+  if (globalClearCount > 0) lines.push('世界のクリア者: <strong>' + globalClearCount + '</strong>人');
+  el.innerHTML = lines.join('<br>');
+}
+
+// ===== CONFETTI =====
+var confettiChars = ['\uD83C\uDF5C','\uD83C\uDF71','\uD83E\uDD69','\u2728','\uD83D\uDC3E','\u2764\uFE0F','\uD83D\uDC95','\u2B50'];
+function spawnConfetti(count, color) {
+  var layer = document.getElementById('particle-layer');
+  var w = window.innerWidth, h = window.innerHeight;
+  for (var i = 0; i < count; i++) {
+    var p = document.createElement('div');
+    p.className = 'confetti';
+    p.textContent = confettiChars[Math.floor(Math.random() * confettiChars.length)];
+    var startX = w * (0.2 + Math.random() * 0.6);
+    var startY = h * 0.3;
+    p.style.left = startX + 'px';
+    p.style.top = startY + 'px';
+    p.style.setProperty('--dx', (Math.random() * 200 - 100) + 'px');
+    p.style.setProperty('--dy', (h * 0.6 + Math.random() * 100) + 'px');
+    p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+    p.style.animationDuration = (1.3 + Math.random() * 0.6) + 's';
+    p.style.animationDelay = (Math.random() * 0.2) + 's';
+    p.style.fontSize = (14 + Math.random() * 10) + 'px';
+    layer.appendChild(p);
+    setTimeout((function(el){ return function(){ el.remove(); }; })(p), 2200);
+  }
+}
+
+// ===== HISSATSU GAUGE =====
+function updateHissatsuGauge(delta) {
+  hissatsuGauge = Math.min(100, hissatsuGauge + delta);
+  var pct = hissatsuGauge;
+  document.getElementById('hissatsu-gauge').style.width = pct + '%';
+  var filled = Math.floor(pct / 20);
+  document.getElementById('hissatsu-paws').textContent = '\uD83D\uDC3E'.repeat(filled);
+  var gBox = document.getElementById('gauge-box');
+  var label = document.getElementById('hissatsu-label');
+  var touchBtn = document.getElementById('hissatsu-touch-btn');
+  if (hissatsuGauge >= 100 && !hissatsuReady) {
+    hissatsuReady = true;
+    hissatsuIndex = Math.floor(Math.random() * HISSATSU_LIST.length);
+    label.textContent = '\u2728 発動OK! \u2728';
+    showDogBubble('必殺、発動せよ！\uD83D\uDC3E', '#ff3b6e');
+    triggerDogHop('sparkling');
+    sfxGaugeReady();
+    touchBtn.classList.add('ready');
+    gBox.classList.add('ready');
+  } else if (!hissatsuReady) {
+    label.textContent = '必殺ゲージ';
+    touchBtn.classList.remove('ready');
+    gBox.classList.remove('ready');
+  }
+}
+
+function activateHissatsu() {
+  if (!hissatsuReady || gameOver || paused || animating) return;
+  hissatsuReady = false;
+  hissatsuGauge = 0;
+  updateHissatsuGauge(0);
+  document.getElementById('hissatsu-label').textContent = '必殺ゲージ';
+  document.getElementById('hissatsu-touch-btn').classList.remove('ready');
+  document.getElementById('gauge-box').classList.remove('ready');
+  var h = HISSATSU_LIST[hissatsuIndex];
+  animating = true;
+  sfxHissatsu();
+  triggerDogSpin();
+  triggerScreenShake(true);
+  triggerScreenFlash('rgba(255,107,157,0.85)');
+  var eff = document.getElementById('hissatsu-effect');
+  document.getElementById('hissatsu-title').textContent = h.name;
+  document.getElementById('hissatsu-title').style.color = h.color;
+  document.getElementById('hissatsu-sub').textContent = h.sub;
+  eff.classList.add('active');
+  showDogBubble(h.name + ' 発動!', h.color);
+  spawnConfetti(40, h.color);
+  setTimeout(function() {
+    eff.classList.remove('active');
+    switch (h.effect) {
+      case 'clearBottom2': clearBottomN(2); break;
+      case 'clearBottom3': clearBottomN(3); break;
+      case 'clearHalf': clearBottomN(Math.floor(ROWS / 2)); break;
+      case 'clearColor': clearDominantColor(); break;
+    }
+    score += 500 * level;
+    updateScoreUI('score');
+    if (score > bestScore) {
+      bestScore = score;
+      localStorage.setItem('menyaKenBest', bestScore);
+      document.getElementById('best').textContent = bestScore;
+    }
+    checkBGMTier();
+    animating = false;
+  }, 1100);
+}
+
+function updateScoreUI(which) {
+  var map = { score:'cell-score', level:'cell-level', lines:'cell-lines', best:'cell-best' };
+  var el = document.getElementById(which);
+  if (el) el.textContent = { score:score, level:level, lines:lines, best:bestScore }[which];
+  var cell = document.getElementById(map[which]);
+  if (cell) {
+    cell.classList.remove('pop');
+    void cell.offsetWidth;
+    cell.classList.add('pop');
+  }
+}
+
+// ===== BOARD OPERATIONS =====
+function clearBottomN(n) {
+  var toRemove = [];
+  for (var r = ROWS - 1; r >= 0 && toRemove.length < n; r--) {
+    if (board[r].some(function(c) { return c !== 0; })) toRemove.push(r);
+  }
+  toRemove.forEach(function(r) {
+    board.splice(r, 1);
+    board.unshift(Array(COLS).fill(0));
+  });
+  lines += toRemove.length;
+  level = Math.floor(lines / 10) + 1;
+  dropInterval = computeDropInterval(level);
+  updateScoreUI('lines');
+  updateScoreUI('level');
+}
+
+function clearDominantColor() {
+  var count = Array(8).fill(0);
+  board.forEach(function(row) { row.forEach(function(v) { if (v) count[v]++; }); });
+  var maxVal = 0, dom = 0;
+  for (var i = 1; i < count.length; i++) { if (count[i] > maxVal) { maxVal = count[i]; dom = i; } }
+  if (!dom) return;
+  board.forEach(function(row) {
+    for (var c = 0; c < COLS; c++) if (row[c] === dom) row[c] = 0;
+  });
+  var nonEmpty = board.filter(function(row) { return row.some(function(c) { return c !== 0; }); });
+  while (nonEmpty.length < ROWS) nonEmpty.unshift(Array(COLS).fill(0));
+  for (var r = 0; r < ROWS; r++) board[r] = nonEmpty[r];
+}
+
+function showZuzozoEffect(count) {
+  var msgs = ['ずぞ!', 'ずぞぞ～!', 'ずぞぞぞ～!!', '大盛りずぞぞぞ～!!!'];
+  var cols = ['#ff9966', '#ff6b9d', '#ff3b6e', '#c44678'];
+  var msg = msgs[Math.min(count - 1, 3)];
+  var col = cols[Math.min(count - 1, 3)];
+  var div = document.createElement('div');
+  div.className = 'milestone-pop';
+  div.style.color = col;
+  div.style.fontSize = (22 + count * 6) + 'px';
+  div.textContent = msg;
+  document.body.appendChild(div);
+  setTimeout(function() { div.remove(); }, 1800);
+  var dogMsgs = ['うまいっ!\uD83C\uDF5C', 'ずぞぞぞ～!', '最高かよ!!\uD83D\uDD25', 'チャーシュー丼並み!\uD83C\uDF71'];
+  showDogBubble(dogMsgs[Math.min(count - 1, 3)], col);
+  sfxLineClear(count);
+  triggerDogHop('sparkling');
+  var cc = [12, 20, 35, 55][Math.min(count - 1, 3)];
+  spawnConfetti(cc, col);
+  // Rebalanced: lower gauge gain from line clears
+  updateHissatsuGauge([5, 10, 20, 35][Math.min(count - 1, 3)]);
+}
+
+// ===== CORE GAME =====
+function initBoard() { board = Array.from({ length: ROWS }, function() { return Array(COLS).fill(0); }); }
+
+function randomPiece() {
+  var id = Math.floor(Math.random() * 7) + 1;
+  return { id: id, matrix: PIECES[id].map(function(r) { return r.slice(); }), x: 3, y: 0 };
+}
+
+function rotate(m) {
+  return m[0].map(function(_, i) { return m.map(function(row) { return row[i]; }).reverse(); });
+}
+
+function isValid(piece, brd, dx, dy, matrix) {
+  dx = dx || 0; dy = dy || 0;
+  var m = matrix || piece.matrix;
+  for (var r = 0; r < m.length; r++) {
+    for (var c = 0; c < m[r].length; c++) {
+      if (!m[r][c]) continue;
+      var nx = piece.x + c + dx, ny = piece.y + r + dy;
+      if (nx < 0 || nx >= COLS || ny >= ROWS) return false;
+      if (ny >= 0 && brd[ny][nx]) return false;
+    }
+  }
+  return true;
+}
+
+function placePiece() {
+  currentPiece.matrix.forEach(function(row, r) {
+    row.forEach(function(val, c) {
+      if (val) {
+        var y = currentPiece.y + r, x = currentPiece.x + c;
+        if (y >= 0) board[y][x] = val;
+      }
+    });
+  });
+  sfxLand();
+  triggerDogEat();
+  if (currentPiece.id === 7) showDogBubble('チャーシュー来た!', '#b71c1c');
+  else if (currentPiece.id === 2) showDogBubble('丼ドン!\uD83C\uDF71', '#bf360c');
+  else if (currentPiece.id === 1) showDogBubble('麺～!\uD83C\uDF5C', '#e65100');
+  else if (currentPiece.id === 5) showDogBubble('味玉トロ～り', '#ad1457');
+  // Rebalanced: +1 per piece (was +3)
+  updateHissatsuGauge(1);
+  updatePinchState();
+}
+
+function getGhostY() {
+  var dy = 0;
+  while (isValid(currentPiece, board, 0, dy + 1)) dy++;
+  return currentPiece.y + dy;
+}
+
+function clearLines() {
+  var full = [];
+  for (var r = ROWS - 1; r >= 0; r--) {
+    if (board[r].every(function(c) { return c !== 0; })) full.push(r);
+  }
+  if (full.length === 0) {
+    // no line cleared: reset combo
+    comboCount = 0;
+    return 0;
+  }
+  flashRows = full;
+  animating = true;
+  // immediate visual FX before removal
+  triggerScreenFlash('rgba(255,255,255,0.7)');
+  triggerScreenShake(full.length >= 4);
+  setTimeout(function() {
+    full.forEach(function(r) {
+      board.splice(r, 1);
+      board.unshift(Array(COLS).fill(0));
+    });
+    flashRows = [];
+    animating = false;
+    var cleared = full.length;
+    // combo bonus
+    comboCount += 1;
+    var comboBonus = comboCount >= 2 ? (comboCount - 1) * 50 * level : 0;
+    // Rebalanced: singles weaker, tetris stronger → encourages stacking
+    score += [0, 50, 200, 500, 1200][cleared] * level + comboBonus;
+    lines += cleared;
+    level = Math.floor(lines / 10) + 1;
+    dropInterval = computeDropInterval(level);
+    updateScoreUI('score');
+    updateScoreUI('level');
+    updateScoreUI('lines');
+    if (score > bestScore) {
+      bestScore = score;
+      localStorage.setItem('menyaKenBest', bestScore);
+      document.getElementById('best').textContent = bestScore;
+    }
+    showZuzozoEffect(cleared);
+    if (comboCount >= 2) {
+      showComboPopup(comboCount);
+      triggerScreenFlash(comboCount >= 4 ? 'rgba(255,215,80,0.7)' : 'rgba(255,179,204,0.6)');
+      // Extra reactions on big combos
+      if (comboCount >= 3) triggerRareReaction('combo');
+    }
+    // Perfect clear check
+    var emptyBoard = board.every(function(row) { return row.every(function(c) { return c === 0; }); });
+    if (emptyBoard && !perfectClearHit) {
+      perfectClearHit = true;
+      score += 2000 * level;
+      updateScoreUI('score');
+      showMilestoneEffect('PERFECT CLEAR!', '#ffd54f');
+      triggerRareReaction('perfect');
+      spawnConfetti(80, '#ffd54f');
+      triggerScreenFlash('rgba(255,215,80,0.9)');
+      triggerScreenShake(true);
+      setTimeout(function(){ perfectClearHit = false; }, 2000);
+    }
+    checkBGMTier();
+    checkEndlessMilestone();
+    updatePinchState();
+  }, 320);
+  return full.length;
+}
+
+// Smoother level curve: fast-ish early, plateaus later
+function computeDropInterval(lv) {
+  // exponential decay, floor at 90ms
+  var v = 900 * Math.pow(0.88, Math.max(0, lv - 1));
+  return Math.max(90, Math.floor(v));
+}
+
+function refillQueue() {
+  while (pieceQueue.length < 4) pieceQueue.push(randomPiece());
+}
+function spawnPiece() {
+  refillQueue();
+  currentPiece = pieceQueue.shift();
+  refillQueue();
+  canHold = true;
+  pieceLandedCount++;
+  maybeTriggerRareReaction();
+  if (!isValid(currentPiece, board)) endGame();
+}
+function getNextPiece(idx) { return pieceQueue[idx] || null; }
+
+function holdCurrentPiece() {
+  if (!canHold) return;
+  canHold = false;
+  var saved = holdPiece;
+  holdPiece = { id: currentPiece.id, matrix: PIECES[currentPiece.id].map(function(r) { return r.slice(); }) };
+  if (saved) { currentPiece = { id: saved.id, matrix: saved.matrix, x: 3, y: 0 }; }
+  else spawnPiece();
+}
+
+function endGame() {
+  gameOver = true;
+  sfxGameOver();
+  stopBGM();
+  stopIdleLoop();
+  if (score > bestScore) {
+    bestScore = score;
+    localStorage.setItem('menyaKenBest', bestScore);
+  }
+  var ov = document.getElementById('overlay');
+  ov.classList.remove('hidden');
+  ov.classList.add('tutorial-hidden');
+  document.getElementById('overlay-title').textContent = victoryTriggered ? '見事な一杯！' : 'GAME OVER';
+  document.getElementById('overlay-sub').textContent = victoryTriggered ? 'クリア後もよく頑張った！' : 'ごちそうさまでした！';
+  document.getElementById('overlay-score').textContent = 'スコア ' + score + ' / ベスト ' + bestScore;
+  document.getElementById('overlay-btn').textContent = 'もう一杯!';
+  updateOverlayStats();
+}
+
+function triggerVictory() {
+  if (victoryTriggered) return;
+  victoryTriggered = true;
+  gameOver = true;
+  stopBGM();
+  stopIdleLoop();
+  sfxVictory();
+  spawnConfetti(80, '#ff6b9d');
+  setTimeout(function(){ spawnConfetti(60, '#ff9966'); }, 300);
+  setTimeout(function(){ spawnConfetti(60, '#ffd54f'); }, 600);
+  triggerScreenFlash('rgba(255,215,80,0.95)');
+  triggerScreenShake(true);
+  triggerRareReaction('victory');
+  if (score > bestScore) {
+    bestScore = score;
+    localStorage.setItem('menyaKenBest', bestScore);
+  }
+  // Increment local clear counter
+  myClearCount++;
+  localStorage.setItem('menyaKenClears', myClearCount);
+  // Increment global and update display
+  incrementGlobalClearCount().then(function() {
+    updateOverlayStats();
+    if (globalClearCount > 0) {
+      showDogBubble('世界で' + globalClearCount + '人目！！🎉', '#ff6b9d');
+    }
+  });
+  var ov = document.getElementById('overlay');
+  ov.classList.remove('hidden');
+  ov.classList.add('tutorial-hidden');
+  document.getElementById('overlay-title').textContent = 'GAME CLEAR!';
+  document.getElementById('overlay-sub').textContent = '10000点達成！お見事！';
+  var scoreText = 'スコア ' + score;
+  if (myClearCount > 0) scoreText += ' ／ あなたは' + myClearCount + '回目のクリア！';
+  document.getElementById('overlay-score').textContent = scoreText;
+  document.getElementById('overlay-btn').textContent = 'もう一杯!';
+  showDogBubble('完全制覇！おめでとう！🎉', '#ff6b9d');
+  updateOverlayStats();
+}
+// No-op (endless milestones removed; kept as stub so existing callers don't break)
+function checkEndlessMilestone() {}
+
+// ===== DRAWING (flat + thick border) =====
+function drawCell(context, x, y, colorIdx, cellSize) {
+  if (!colorIdx) return;
+  var cs = cellSize || CELL;
+  var base = COLORS[colorIdx];
+  var border = BORDERS[colorIdx];
+  var px = x * cs, py = y * cs;
+  var bw = Math.max(2, Math.floor(cs * 0.12));
+  var radius = Math.floor(cs * 0.18);
+
+  context.fillStyle = border;
+  roundRect(context, px, py, cs, cs, radius);
+  context.fill();
+
+  context.fillStyle = base;
+  roundRect(context, px + bw, py + bw, cs - bw * 2, cs - bw * 2, Math.max(1, radius - bw / 2));
+  context.fill();
+
+  // tiny highlight
+  context.fillStyle = 'rgba(255,255,255,0.45)';
+  context.fillRect(px + bw + 2, py + bw + 2, Math.max(2, (cs - bw * 2) * 0.28), 2);
+
+  if (cs >= 18) {
+    context.font = '900 ' + Math.floor(cs * 0.5) + 'px sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(ICONS[colorIdx], px + cs / 2, py + cs / 2 + 1);
+  }
+}
+
+function hexToRgba(hex, a) {
+  var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+}
+
+function roundRect(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+
+function drawGrid() {
+  ctx.fillStyle = '#fff7ef';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // soft grid dots
+  ctx.fillStyle = 'rgba(139,69,19,0.10)';
+  for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) {
+    ctx.beginPath();
+    ctx.arc(c * CELL + CELL / 2, r * CELL + CELL / 2, 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) {
+    if (board[r][c]) drawCell(ctx, c, r, board[r][c]);
+  }
+  if (flashRows.length) {
+    ctx.fillStyle = 'rgba(255,220,240,0.85)';
+    flashRows.forEach(function(r) { ctx.fillRect(0, r * CELL, COLS * CELL, CELL); });
+  }
+  if (!currentPiece || animating) return;
+
+  // Ghost (more visible: colored fill + dashed border)
+  var ghostY = getGhostY();
+  currentPiece.matrix.forEach(function(row, r) {
+    row.forEach(function(val, c) {
+      if (val && ghostY + r >= 0) {
+        var px = (currentPiece.x + c) * CELL, py = (ghostY + r) * CELL;
+        var base = COLORS[val];
+        var rad = Math.floor(CELL * 0.18);
+        ctx.fillStyle = hexToRgba(base, 0.25);
+        roundRect(ctx, px + 2, py + 2, CELL - 4, CELL - 4, rad);
+        ctx.fill();
+        ctx.strokeStyle = BORDERS[val];
+        ctx.setLineDash([4, 3]);
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px + 3, py + 3, CELL - 6, CELL - 6);
+        ctx.setLineDash([]);
+      }
+    });
+  });
+
+  // Current piece
+  currentPiece.matrix.forEach(function(row, r) {
+    row.forEach(function(val, c) {
+      if (val && currentPiece.y + r >= 0) {
+        drawCell(ctx, currentPiece.x + c, currentPiece.y + r, val);
+      }
+    });
+  });
+}
+
+function drawMiniPiece(context, piece, canvasEl) {
+  var cw = canvasEl.width, ch = canvasEl.height;
+  context.clearRect(0, 0, cw, ch);
+  context.fillStyle = '#fff7ef';
+  context.fillRect(0, 0, cw, ch);
+  if (!piece) return;
+  var m = PIECES[piece.id];
+  var rows = m.length, cols = m[0].length;
+  var cs = Math.min(Math.floor(cw / cols), Math.floor(ch / rows)) - 2;
+  var ox = Math.floor((cw - cols * cs) / 2);
+  var oy = Math.floor((ch - rows * cs) / 2);
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    if (m[r][c]) {
+      var base = COLORS[m[r][c]];
+      var bd = BORDERS[m[r][c]];
+      var px = ox + c * cs, py = oy + r * cs;
+      var bw = Math.max(1, Math.floor(cs * 0.14));
+      var radius = Math.floor(cs * 0.2);
+      context.fillStyle = bd;
+      roundRect(context, px, py, cs, cs, radius);
+      context.fill();
+      context.fillStyle = base;
+      roundRect(context, px + bw, py + bw, cs - bw * 2, cs - bw * 2, Math.max(1, radius - bw / 2));
+      context.fill();
+      if (cs >= 12) {
+        context.font = '900 ' + Math.floor(cs * 0.55) + 'px sans-serif';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(ICONS[m[r][c]], px + cs / 2, py + cs / 2 + 1);
+      }
+    }
+  }
+}
+
+function draw() {
+  drawGrid();
+  drawMiniPiece(nextCtx,  getNextPiece(0), nextCanvas);
+  drawMiniPiece(nextCtx2, getNextPiece(1), nextCanvas2);
+  drawMiniPiece(nextCtx3, getNextPiece(2), nextCanvas3);
+  drawMiniPiece(holdCtx,  holdPiece, holdCanvas);
+}
+
+// ===== GAME LOOP =====
+function gameLoop(time) {
+  if (gameOver || victoryTriggered) return;
+  if (paused) { requestAnimationFrame(gameLoop); return; }
+  var delta = time - lastTime;
+  lastTime = time;
+  if (!animating) {
+    dropCounter += delta;
+    if (dropCounter > dropInterval) {
+      dropCounter = 0;
+      if (isValid(currentPiece, board, 0, 1)) {
+        currentPiece.y++;
+      } else {
+        placePiece();
+        clearLines();
+        if (!gameOver && !victoryTriggered) spawnPiece();
+      }
+    }
+  }
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+// ===== INPUT HANDLING =====
+function handleAction(action) {
+  if (gameOver || paused || animating || !gameStarted || victoryTriggered) return;
+  resetIdle();
+  switch (action) {
+    case 'left':
+      if (isValid(currentPiece, board, -1, 0)) currentPiece.x--;
+      break;
+    case 'right':
+      if (isValid(currentPiece, board, 1, 0)) currentPiece.x++;
+      break;
+    case 'down':
+      if (isValid(currentPiece, board, 0, 1)) { currentPiece.y++; score += 1; updateScoreUI('score'); }
+      break;
+    case 'rotate':
+      var rotated = rotate(currentPiece.matrix);
+      if (isValid(currentPiece, board, 0, 0, rotated)) {
+        currentPiece.matrix = rotated;
+      } else if (isValid(currentPiece, board, 1, 0, rotated)) {
+        currentPiece.x++; currentPiece.matrix = rotated;
+      } else if (isValid(currentPiece, board, -1, 0, rotated)) {
+        currentPiece.x--; currentPiece.matrix = rotated;
+      } else if (isValid(currentPiece, board, 2, 0, rotated)) {
+        currentPiece.x += 2; currentPiece.matrix = rotated;
+      } else if (isValid(currentPiece, board, -2, 0, rotated)) {
+        currentPiece.x -= 2; currentPiece.matrix = rotated;
+      }
+      break;
+    case 'drop':
+      while (isValid(currentPiece, board, 0, 1)) { currentPiece.y++; score += 2; }
+      updateScoreUI('score');
+      placePiece();
+      clearLines();
+      if (!gameOver && !victoryTriggered) spawnPiece();
+      dropCounter = 0;
+      break;
+    case 'hold':
+      holdCurrentPiece();
+      break;
+    case 'hissatsu':
+      activateHissatsu();
+      break;
+  }
+}
+
+// Keyboard
+document.addEventListener('keydown', function(e) {
+  if (!gameStarted) return;
+  if (e.key === 'p' || e.key === 'P') { paused = !paused; return; }
+  var keyMap = {
+    'ArrowLeft': 'left', 'ArrowRight': 'right', 'ArrowDown': 'down',
+    'ArrowUp': 'rotate', ' ': 'drop', 'c': 'hold', 'C': 'hold',
+    'z': 'hissatsu', 'Z': 'hissatsu'
+  };
+  if (keyMap[e.key]) {
+    e.preventDefault();
+    handleAction(keyMap[e.key]);
+  }
+});
+
+// Touch / Mouse / Click controls - unified with debounce to avoid double-fire
+var touchControls = document.getElementById('touch-controls');
+var touchRepeatInterval = null;
+var touchRepeatAction = null;
+var lastActionAt = 0;
+var lastActionName = '';
+
+function runAction(action) {
+  // Debounce duplicate touch+click within 350ms
+  var now = Date.now();
+  if (action === lastActionName && now - lastActionAt < 350) return;
+  lastActionAt = now;
+  lastActionName = action;
+  handleAction(action);
+}
+
+function startRepeat(action) {
+  if (action !== 'left' && action !== 'right' && action !== 'down') return;
+  clearInterval(touchRepeatInterval);
+  touchRepeatAction = action;
+  touchRepeatInterval = setInterval(function() {
+    // Bypass debounce for repeat
+    handleAction(touchRepeatAction);
+  }, 85);
+}
+function stopRepeat() {
+  clearInterval(touchRepeatInterval);
+  touchRepeatAction = null;
+}
+
+// Pointerdown covers both mouse and touch in modern browsers
+touchControls.addEventListener('pointerdown', function(e) {
+  var btn = e.target.closest('.touch-btn');
+  if (!btn) return;
+  e.preventDefault();
+  var action = btn.dataset.action;
+  runAction(action);
+  startRepeat(action);
+});
+touchControls.addEventListener('pointerup', stopRepeat);
+touchControls.addEventListener('pointercancel', stopRepeat);
+touchControls.addEventListener('pointerleave', stopRepeat);
+
+// Click fallback for older browsers / accessibility / synthetic taps
+touchControls.addEventListener('click', function(e) {
+  var btn = e.target.closest('.touch-btn');
+  if (!btn) return;
+  runAction(btn.dataset.action);
+});
+
+// Extra safety: touchstart for iOS Safari (covered by pointerdown on modern iOS but harmless)
+touchControls.addEventListener('touchstart', function(e) {
+  var btn = e.target.closest('.touch-btn');
+  if (!btn) return;
+  e.preventDefault();
+  var action = btn.dataset.action;
+  runAction(action);
+  startRepeat(action);
+}, { passive: false });
+touchControls.addEventListener('touchend', function(e) { e.preventDefault(); stopRepeat(); }, { passive: false });
+touchControls.addEventListener('touchcancel', stopRepeat, { passive: false });
+
+// Prevent scrolling/zooming
+document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
+document.addEventListener('gesturestart', function(e) { e.preventDefault(); });
+document.addEventListener('gesturechange', function(e) { e.preventDefault(); });
+
+// ===== START GAME =====
+function startGame() {
+  gameOver = false;
+  paused = false;
+  gameStarted = true;
+  victoryTriggered = false;
+  score = 0; level = 1; lines = 0;
+  dropInterval = computeDropInterval(1); dropCounter = 0;
+  hissatsuGauge = 0; hissatsuReady = false;
+  currentBGMTier = 0;
+  milestoneHit = { 1: false, 2: false, 3: false };
+  canHold = true; holdPiece = null;
+  comboCount = 0; pinchActive = false; perfectClearHit = false;
+  pieceQueue = []; pieceLandedCount = 0;
+  document.getElementById('dog-side').classList.remove('panic','eating-ramen','special');
+  document.getElementById('game-canvas').classList.remove('danger');
+  document.getElementById('score').textContent = '0';
+  document.getElementById('level').textContent = '1';
+  document.getElementById('lines').textContent = '0';
+  document.getElementById('hissatsu-gauge').style.width = '0%';
+  document.getElementById('hissatsu-paws').textContent = '';
+  document.getElementById('hissatsu-label').textContent = '必殺ゲージ';
+  document.getElementById('hissatsu-touch-btn').classList.remove('ready');
+  document.getElementById('gauge-box').classList.remove('ready');
+
+  var ov = document.getElementById('overlay');
+  ov.classList.add('hidden');
+  ov.classList.remove('tutorial-hidden'); // fix: tutorial was hidden on re-open
+
+  initBoard();
+  spawnPiece();
+  resizeCanvas();
+  startBGM();
+  showDogBubble('いってらっしゃい！\uD83C\uDF5C', '#ff6b9d');
+  lastTime = performance.now();
+  lastActionTs = Date.now();
+  startIdleLoop();
+  requestAnimationFrame(gameLoop);
+}
+
+// Initial sizing
+resizeCanvas();
+// Pre-fetch global counter + update overlay stats
+updateOverlayStats();
+fetchGlobalClearCount();
+</script>
+</body>
+</html>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>BGM 5パターン聴き比べ</title>
+<style>
+body {
+  font-family: "M PLUS Rounded 1c","Hiragino Maru Gothic Pro",sans-serif;
+  background: linear-gradient(160deg, #fff3e6 0%, #ffd9e8 50%, #ffe4cc 100%);
+  padding: 24px; margin: 0; color: #5c3317;
+}
+h1 { font-size: 22px; color: #c44678; margin-bottom: 8px; }
+.intro { font-size: 14px; margin-bottom: 20px; }
+.panel {
+  background: #fff; border: 3px solid #ff6b9d; border-radius: 14px;
+  padding: 14px; margin-bottom: 12px; box-shadow: 0 3px 0 #c44678;
+}
+.panel h2 { font-size: 16px; color: #c44678; margin-bottom: 4px; }
+.panel .desc { font-size: 12px; color: #8b4513; margin-bottom: 10px; }
+.ctrl { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.ctrl button {
+  padding: 10px 18px; font-size: 15px; font-weight: 900;
+  border: 3px solid #8b4513; border-radius: 999px;
+  background: #fff4e8; color: #8b4513;
+  cursor: pointer; font-family: inherit;
+  box-shadow: 0 3px 0 #5c3317;
+}
+.ctrl button:active { transform: translateY(2px); box-shadow: 0 1px 0 #5c3317; }
+.ctrl button.playing { background: #ff6b9d; color: #fff; border-color: #c44678; box-shadow: 0 3px 0 #8a2750; }
+.stop-all {
+  background: #f44; color: #fff; border-color: #c00;
+  padding: 10px 24px; font-size: 15px; font-weight: 900;
+  border-radius: 999px; border-width: 3px; border-style: solid;
+  box-shadow: 0 3px 0 #800;
+  cursor: pointer; margin-bottom: 20px; font-family: inherit;
+}
+.tag { display: inline-block; font-size: 10px; background: #ffe0ed; color: #c44678;
+  padding: 2px 8px; border-radius: 999px; margin-right: 4px; }
+</style>
+</head>
+<body>
+  <h1>🎵 オリジナルBGM 5パターン</h1>
+  <p class="intro">
+    麺やけんテトリス用の新しいBGM候補です。▶︎ で再生、気になるのを選んでください。<br>
+    複数同時再生できちゃうので、先に ⏹ で止めてから次を試してください。
+  </p>
+  <button class="stop-all" onclick="stopAll()">⏹ すべて止める</button>
+
+  <div class="panel">
+    <h2>① かわいいJ-POP風</h2>
+    <div class="desc">
+      <span class="tag">BPM 132</span>
+      弾むリズム、明るい主旋律。アニメOPみたいなポップさ。
+    </div>
+    <div class="ctrl"><button onclick="play(1)">▶︎ 再生</button></div>
+  </div>
+
+  <div class="panel">
+    <h2>② 和風・ラーメン屋テーマソング風</h2>
+    <div class="desc">
+      <span class="tag">BPM 100</span>
+      5音音階（ヨナ抜き）、三味線っぽい雰囲気。お店の暖簾くぐった感。
+    </div>
+    <div class="ctrl"><button onclick="play(2)">▶︎ 再生</button></div>
+  </div>
+
+  <div class="panel">
+    <h2>③ 落ち着いたLo-Fi</h2>
+    <div class="desc">
+      <span class="tag">BPM 80</span>
+      ゆったり、邪魔にならない。集中プレイ向き。
+    </div>
+    <div class="ctrl"><button onclick="play(3)">▶︎ 再生</button></div>
+  </div>
+
+  <div class="panel">
+    <h2>④ ハツラツ8-bitゲーム風</h2>
+    <div class="desc">
+      <span class="tag">BPM 150</span>
+      レトロゲームBGMの元気さ。でも旧版より焦らない。
+    </div>
+    <div class="ctrl"><button onclick="play(4)">▶︎ 再生</button></div>
+  </div>
+
+  <div class="panel">
+    <h2>⑤ 麺やけんオリジナル（あたたかみ）</h2>
+    <div class="desc">
+      <span class="tag">BPM 118</span>
+      ラーメン屋の店内BGMとしても使える、ほっこり・親しみやすい系。
+    </div>
+    <div class="ctrl"><button onclick="play(5)">▶︎ 再生</button></div>
+  </div>
+
+<script>
+var ac = null, master = null;
+function getCtx() {
+  if (!ac) {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    master = ac.createGain();
+    master.gain.value = 0.22;
+    master.connect(ac.destination);
+  }
+  return ac;
+}
+var NT = {
+  'C3':130.81,'D3':146.83,'E3':164.81,'F3':174.61,'G3':196,'A3':220,'A3S':233.08,'B3':246.94,
+  'C4':261.63,'D4':293.66,'D4S':311.13,'E4':329.63,'F4':349.23,'F4S':369.99,'G4':392,'A4':440,'A4S':466.16,'B4':493.88,
+  'C5':523.25,'D5':587.33,'D5S':622.25,'E5':659.25,'F5':698.46,'F5S':739.99,'G5':784,'G5S':830.61,'A5':880,'A5S':932.33,'B5':987.77,
+  'C6':1046.50,'D6':1174.66,'E6':1318.51,'R':0
+};
+
+// === Original melodies ===
+// ① かわいいJ-POP (bouncy pop, major)
+var M1 = [
+  ['G5',0.5],['E5',0.5],['F5',0.5],['D5',0.5],
+  ['E5',0.5],['C5',0.5],['D5',0.5],['E5',0.5],
+  ['G5',0.5],['E5',0.5],['F5',0.5],['D5',0.5],
+  ['C5',1.0],['R',0.5],['G4',0.5],
+  ['A4',0.5],['B4',0.5],['C5',0.5],['D5',0.5],
+  ['E5',0.5],['F5',0.5],['G5',1.0],
+  ['A5',0.5],['G5',0.5],['F5',0.5],['E5',0.5],
+  ['D5',0.5],['C5',0.5],['D5',1.0],
+  ['E5',0.5],['G5',0.5],['C6',1.0],['B5',0.5],['A5',0.5],
+  ['G5',2.0]
+];
+var B1 = [['C3',1],['G3',1],['A3',1],['F3',1],['C3',1],['G3',1],['F3',1],['G3',1]];
+
+// ② 和風 (pentatonic Japanese, minor feel with C-D-E-G-A)
+var M2 = [
+  ['D5',0.75],['E5',0.25],['A5',1.0],['G5',0.5],['E5',0.5],
+  ['D5',0.75],['E5',0.25],['G5',0.5],['A5',0.5],['E5',1.0],
+  ['D5',0.5],['E5',0.5],['A4',1.0],['R',0.5],
+  ['A4',0.5],['B4',0.5],['D5',0.5],['E5',0.5],['G5',1.0],
+  ['E5',0.5],['D5',0.5],['A4',1.0],['R',0.5],
+  ['D5',0.5],['A5',0.5],['G5',0.5],['E5',0.5],
+  ['D5',1.0],['E5',0.5],['D5',0.5],['A4',1.5],['R',0.5]
+];
+var B2 = [['A3',1],['E3',1],['D3',1],['A3',1],['D3',1],['E3',1],['A3',2]];
+
+// ③ Lo-Fi (slow, long notes, dreamy)
+var M3 = [
+  ['E5',1.5],['G5',0.5],['F5',2.0],
+  ['D5',1.5],['E5',0.5],['C5',2.0],
+  ['G4',1.5],['A4',0.5],['B4',2.0],
+  ['C5',1.5],['E5',0.5],['D5',2.0],
+  ['F5',1.0],['E5',1.0],['D5',2.0]
+];
+var B3 = [['C3',2],['F3',2],['G3',2],['C3',2]];
+
+// ④ 8-bit (arpeggio happy)
+var M4 = [
+  ['C5',0.25],['E5',0.25],['G5',0.25],['C6',0.25],
+  ['G5',0.25],['E5',0.25],['G5',0.5],
+  ['A4',0.25],['C5',0.25],['F5',0.25],['A5',0.25],
+  ['F5',0.25],['C5',0.25],['F5',0.5],
+  ['B4',0.25],['D5',0.25],['G5',0.25],['B5',0.25],
+  ['G5',0.25],['D5',0.25],['G5',0.5],
+  ['C5',0.25],['E5',0.25],['G5',0.25],['C6',0.25],
+  ['E6',0.5],['D6',0.5],['C6',1.0]
+];
+var B4 = [['C3',0.5],['C3',0.5],['G3',0.5],['G3',0.5],['F3',0.5],['F3',0.5],['G3',0.5],['G3',0.5]];
+
+// ⑤ 麺やけんオリジナル (warm, hearty, slightly jazzy)
+var M5 = [
+  ['C5',0.75],['E5',0.25],['G5',0.5],['C6',0.5],
+  ['B5',0.75],['G5',0.25],['E5',1.0],
+  ['A4',0.75],['C5',0.25],['E5',0.5],['A5',0.5],
+  ['G5',0.75],['E5',0.25],['C5',1.0],
+  ['F4',0.75],['A4',0.25],['C5',0.5],['F5',0.5],
+  ['E5',0.75],['C5',0.25],['A4',1.0],
+  ['G4',0.5],['B4',0.5],['D5',0.5],['G5',0.5],
+  ['F5',0.75],['D5',0.25],['C5',1.0],['G4',0.5],
+  ['C5',2.0]
+];
+var B5 = [['C3',1],['G3',1],['A3',1],['E3',1],['F3',1],['G3',1],['C3',1],['G3',1]];
+
+var BPMS = { 1:132, 2:100, 3:80, 4:150, 5:118 };
+var MELS = { 1:M1, 2:M2, 3:M3, 4:M4, 5:M5 };
+var BSS  = { 1:B1, 2:B2, 3:B3, 4:B4, 5:B5 };
+
+var playing = false;
+var currentIdx = 0;
+var stopTimer = null;
+
+function playNote(freq, t, dur, type, vol) {
+  if (!freq) return;
+  var osc = ac.createOscillator(); var g = ac.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.02);
+  g.gain.setValueAtTime(vol, t + dur * 0.7);
+  g.gain.linearRampToValueAtTime(0, t + dur * 0.98);
+  osc.connect(g); g.connect(master);
+  osc.start(t); osc.stop(t + dur);
+}
+
+function scheduleLoop(startTime, idx) {
+  if (!playing || currentIdx !== idx) return;
+  var bpm = BPMS[idx];
+  var beat = 60 / bpm;
+  var mel = MELS[idx], bass = BSS[idx];
+  var melType = idx === 3 ? 'sine' : (idx === 4 ? 'square' : 'sine');
+  var melVol  = idx === 3 ? 0.08 : 0.07;
+  var bassType = idx === 4 ? 'square' : 'triangle';
+
+  var t = startTime;
+  for (var i = 0; i < mel.length; i++) {
+    var freq = NT[mel[i][0]] || 0;
+    var dur = mel[i][1] * beat;
+    playNote(freq, t, dur * 0.88, melType, melVol);
+    t += dur;
+  }
+  var bt = startTime;
+  while (bt < t) {
+    for (var j = 0; j < bass.length && bt < t; j++) {
+      var bfreq = NT[bass[j][0]] || 0;
+      var bdur = bass[j][1] * beat;
+      playNote(bfreq, bt, bdur * 0.7, bassType, 0.05);
+      bt += bdur;
+    }
+  }
+  var loopDur = t - startTime;
+  stopTimer = setTimeout(function(){ scheduleLoop(ac.currentTime + 0.05, idx); }, (loopDur - 0.2) * 1000);
+}
+
+function stopAll() {
+  playing = false;
+  currentIdx = 0;
+  if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
+  document.querySelectorAll('.ctrl button').forEach(function(b){ b.classList.remove('playing'); });
+}
+
+function play(idx) {
+  getCtx();
+  if (ac.state === 'suspended') ac.resume();
+  stopAll();
+  playing = true;
+  currentIdx = idx;
+  scheduleLoop(ac.currentTime + 0.1, idx);
+  // Highlight
+  var panels = document.querySelectorAll('.panel');
+  panels[idx - 1].querySelector('.ctrl button').classList.add('playing');
+}
+</script>
+</body>
+</html>
