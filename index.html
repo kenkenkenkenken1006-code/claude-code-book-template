@@ -347,22 +347,41 @@ body::before {
 
 /* ===== TOUCH CONTROLS ===== */
 .touch-controls {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
+  display: flex;
+  gap: 10px;
   padding: 6px 8px 10px;
   width: 100%;
   max-width: 460px;
   flex-shrink: 0;
+  align-items: stretch;
 }
+.dpad {
+  flex: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dpad-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+}
+.dpad-spacer { /* empty cell to keep down button centered under rotate */ }
+.actions {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.actions .touch-btn { flex: 1; display: flex; align-items: center; justify-content: center; }
 .touch-btn {
   background: #fff;
   color: #8b4513;
   border: 3px solid #8b4513;
   border-radius: 14px;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 900;
-  padding: 12px 0;
+  padding: 14px 0;
   text-align: center;
   cursor: pointer;
   box-shadow: 0 4px 0 #5c3317;
@@ -376,18 +395,11 @@ body::before {
   transform: translateY(3px);
   box-shadow: 0 1px 0 #5c3317;
 }
-.touch-btn.drop-btn {
-  background: linear-gradient(135deg, #ffb347, #ff8c00);
-  color: #fff;
-  border-color: #c44c00;
-  box-shadow: 0 4px 0 #8b3400;
-  font-size: 14px;
-}
-.touch-btn.drop-btn:active { box-shadow: 0 1px 0 #8b3400; }
 .touch-btn.hold-btn {
   background: #fff4e8;
   color: #8b4513;
   font-size: 14px;
+  padding: 8px 0;
 }
 .touch-btn.hissatsu-btn {
   background: linear-gradient(135deg, #ff9ec4, #ff3b6e);
@@ -395,7 +407,7 @@ body::before {
   border-color: #c44678;
   box-shadow: 0 4px 0 #8a2750;
   font-size: 16px;
-  grid-column: span 2;
+  padding: 8px 0;
 }
 .touch-btn.hissatsu-btn:active { box-shadow: 0 1px 0 #8a2750; }
 .touch-btn.hissatsu-btn.ready {
@@ -686,7 +698,8 @@ body::before {
   .score-cell .s-val { font-size: 28px; }
   .score-cell .s-label { font-size: 11px; }
   .touch-controls { max-width: 520px; }
-  .touch-btn { font-size: 22px; padding: 14px 0; }
+  .touch-btn { font-size: 24px; padding: 16px 0; }
+  .touch-btn.hold-btn, .touch-btn.hissatsu-btn { font-size: 16px; padding: 10px 0; }
   .dog-side { width: 110px; height: 100px; }
   .dog-side img { width: 84px; height: 84px; }
   #dog-bubble { font-size: 13px; }
@@ -761,13 +774,22 @@ body::before {
 
   <!-- TOUCH CONTROLS -->
   <div class="touch-controls" id="touch-controls">
-    <div class="touch-btn" data-action="left">&larr;</div>
-    <div class="touch-btn" data-action="right">&rarr;</div>
-    <div class="touch-btn" data-action="down">&darr;</div>
-    <div class="touch-btn" data-action="rotate">&#x21BB;</div>
-    <div class="touch-btn drop-btn" data-action="drop">DROP</div>
-    <div class="touch-btn hold-btn" data-action="hold">HOLD</div>
-    <div class="touch-btn hissatsu-btn" id="hissatsu-touch-btn" data-action="hissatsu">&#x2728; 必 殺 &#x2728;</div>
+    <div class="dpad">
+      <div class="dpad-row">
+        <div class="touch-btn" data-action="left">&larr;</div>
+        <div class="touch-btn" data-action="rotate">&#x21BB;</div>
+        <div class="touch-btn" data-action="right">&rarr;</div>
+      </div>
+      <div class="dpad-row">
+        <div class="dpad-spacer"></div>
+        <div class="touch-btn" data-action="down">&darr;</div>
+        <div class="dpad-spacer"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <div class="touch-btn hold-btn" data-action="hold">HOLD</div>
+      <div class="touch-btn hissatsu-btn" id="hissatsu-touch-btn" data-action="hissatsu">&#x2728; 必殺 &#x2728;</div>
+    </div>
   </div>
 </div>
 
@@ -787,8 +809,7 @@ body::before {
   <div id="tutorial" class="tutorial">
     <div class="tuto-row"><span class="tuto-key">&larr; &rarr;</span><span>左右に移動</span></div>
     <div class="tuto-row"><span class="tuto-key">&#x21BB;</span><span>回転</span></div>
-    <div class="tuto-row"><span class="tuto-key">&darr;</span><span>1マス下げる</span></div>
-    <div class="tuto-row"><span class="tuto-key">DROP</span><span>一気に落とす</span></div>
+    <div class="tuto-row"><span class="tuto-key">&darr;</span><span>下げる（長押しで連続）</span></div>
     <div class="tuto-row"><span class="tuto-key">HOLD</span><span>1回だけピースを保存</span></div>
     <div class="tuto-row"><span class="tuto-key">&#x2728;必殺</span><span>ゲージ満タンで発動</span></div>
   </div>
