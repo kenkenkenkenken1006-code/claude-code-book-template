@@ -2046,17 +2046,23 @@ function runAction(action) {
   handleAction(action);
 }
 
+var touchRepeatDelay = null;
 function startRepeat(action) {
   if (action !== 'left' && action !== 'right' && action !== 'down') return;
-  clearInterval(touchRepeatInterval);
+  stopRepeat();
   touchRepeatAction = action;
-  touchRepeatInterval = setInterval(function() {
-    // Bypass debounce for repeat
-    handleAction(touchRepeatAction);
-  }, 85);
+  // DAS (Delayed Auto Shift): wait 280ms before repeat kicks in.
+  // This prevents quick taps from registering as 2 moves.
+  touchRepeatDelay = setTimeout(function() {
+    touchRepeatDelay = null;
+    touchRepeatInterval = setInterval(function() {
+      handleAction(touchRepeatAction);
+    }, 70);
+  }, 280);
 }
 function stopRepeat() {
-  clearInterval(touchRepeatInterval);
+  if (touchRepeatDelay)    { clearTimeout(touchRepeatDelay);    touchRepeatDelay    = null; }
+  if (touchRepeatInterval) { clearInterval(touchRepeatInterval); touchRepeatInterval = null; }
   touchRepeatAction = null;
 }
 
@@ -2069,9 +2075,9 @@ touchControls.addEventListener('pointerdown', function(e) {
   runAction(action);
   startRepeat(action);
 });
-touchControls.addEventListener('pointerup', stopRepeat);
-touchControls.addEventListener('pointercancel', stopRepeat);
-touchControls.addEventListener('pointerleave', stopRepeat);
+// Use document-level release so CSS :active transforms don't accidentally stop repeat
+document.addEventListener('pointerup', stopRepeat);
+document.addEventListener('pointercancel', stopRepeat);
 
 // Click fallback for older browsers / accessibility / synthetic taps
 touchControls.addEventListener('click', function(e) {
