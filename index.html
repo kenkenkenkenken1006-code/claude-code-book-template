@@ -347,16 +347,17 @@ body::before {
 
 /* ===== TOUCH CONTROLS ===== */
 .touch-controls {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1.7fr 1fr;
+  gap: 8px;
   padding: 6px 8px 10px;
   width: 100%;
-  max-width: 460px;
+  max-width: 500px;
+  margin: 0 auto;
   flex-shrink: 0;
   align-items: stretch;
 }
 .dpad {
-  flex: 1.6;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -367,13 +368,16 @@ body::before {
   gap: 6px;
 }
 .dpad-spacer { /* empty cell to keep down button centered under rotate */ }
-.actions {
-  flex: 1;
+
+/* HOLD / 必殺 occupy single cells on left & right of the dpad */
+.touch-controls > .hold-btn,
+.touch-controls > .hissatsu-btn {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.15;
 }
-.actions .touch-btn { flex: 1; display: flex; align-items: center; justify-content: center; }
 .touch-btn {
   background: #fff;
   color: #8b4513;
@@ -774,6 +778,7 @@ body::before {
 
   <!-- TOUCH CONTROLS -->
   <div class="touch-controls" id="touch-controls">
+    <div class="touch-btn hold-btn" data-action="hold">HOLD</div>
     <div class="dpad">
       <div class="dpad-row">
         <div class="touch-btn" data-action="left">&larr;</div>
@@ -786,10 +791,7 @@ body::before {
         <div class="dpad-spacer"></div>
       </div>
     </div>
-    <div class="actions">
-      <div class="touch-btn hold-btn" data-action="hold">HOLD</div>
-      <div class="touch-btn hissatsu-btn" id="hissatsu-touch-btn" data-action="hissatsu">&#x2728; 必殺 &#x2728;</div>
-    </div>
+    <div class="touch-btn hissatsu-btn" id="hissatsu-touch-btn" data-action="hissatsu">&#x2728;<br>必殺<br>&#x2728;</div>
   </div>
 </div>
 
