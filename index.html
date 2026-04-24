@@ -379,8 +379,10 @@ body::before {
   justify-content: center;
   text-align: center;
   line-height: 1.15;
-  padding: 18px 4px;
-  font-size: 14px;
+  padding: 10px 4px;
+  font-size: 12px;
+  max-height: 50px;
+  min-height: 40px;
 }
 .touch-btn {
   background: #fff;
@@ -707,7 +709,8 @@ body::before {
   .score-cell .s-label { font-size: 11px; }
   .touch-controls { max-width: 540px; }
   .touch-btn { font-size: 24px; padding: 16px 0; }
-  .touch-btn.hold-btn, .touch-btn.hissatsu-btn { font-size: 15px; padding: 20px 4px; }
+  .touch-controls > .hold-btn,
+  .touch-controls > .hissatsu-btn { font-size: 13px; padding: 12px 4px; max-height: 56px; }
   .dog-side { width: 110px; height: 100px; }
   .dog-side img { width: 84px; height: 84px; }
   #dog-bubble { font-size: 13px; }
