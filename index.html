@@ -348,14 +348,14 @@ body::before {
 /* ===== TOUCH CONTROLS ===== */
 .touch-controls {
   display: grid;
-  grid-template-columns: 1fr 1.7fr 1fr;
+  grid-template-columns: 0.8fr 2.2fr 0.8fr;
   gap: 8px;
   padding: 6px 8px 10px;
   width: 100%;
   max-width: 500px;
   margin: 0 auto;
   flex-shrink: 0;
-  align-items: stretch;
+  align-items: center;
 }
 .dpad {
   display: flex;
@@ -369,14 +369,18 @@ body::before {
 }
 .dpad-spacer { /* empty cell to keep down button centered under rotate */ }
 
-/* HOLD / 必殺 occupy single cells on left & right of the dpad */
+/* HOLD / 必殺 occupy single cells on left & right of the dpad.
+   Smaller than dpad rows so they don't dominate the UI. */
 .touch-controls > .hold-btn,
 .touch-controls > .hissatsu-btn {
+  align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   line-height: 1.15;
+  padding: 18px 4px;
+  font-size: 14px;
 }
 .touch-btn {
   background: #fff;
@@ -701,9 +705,9 @@ body::before {
   .brand-logo { width: 40px; height: 40px; }
   .score-cell .s-val { font-size: 28px; }
   .score-cell .s-label { font-size: 11px; }
-  .touch-controls { max-width: 520px; }
+  .touch-controls { max-width: 540px; }
   .touch-btn { font-size: 24px; padding: 16px 0; }
-  .touch-btn.hold-btn, .touch-btn.hissatsu-btn { font-size: 16px; padding: 10px 0; }
+  .touch-btn.hold-btn, .touch-btn.hissatsu-btn { font-size: 15px; padding: 20px 4px; }
   .dog-side { width: 110px; height: 100px; }
   .dog-side img { width: 84px; height: 84px; }
   #dog-bubble { font-size: 13px; }
@@ -791,7 +795,7 @@ body::before {
         <div class="dpad-spacer"></div>
       </div>
     </div>
-    <div class="touch-btn hissatsu-btn" id="hissatsu-touch-btn" data-action="hissatsu">&#x2728;<br>必殺<br>&#x2728;</div>
+    <div class="touch-btn hissatsu-btn" id="hissatsu-touch-btn" data-action="hissatsu">&#x2728;必殺&#x2728;</div>
   </div>
 </div>
 
